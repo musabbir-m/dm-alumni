@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Waves, Menu, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import UserMenu from '@/components/UserMenu';
 
 const navLinks = [
   { label: 'About', href: '#about' },
@@ -89,13 +90,7 @@ export default function Header() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle />
-          <a
-            href="#connect"
-            className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-ocean-400/40 transition-all hover:shadow-reef-400/40 hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-900/40 dark:hover:shadow-reef-500/30"
-          >
-            <span className="relative z-10">Join the Network</span>
-            <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-          </a>
+          <UserMenu />
         </div>
 
         <div className="flex items-center gap-2 lg:hidden">
@@ -127,13 +122,7 @@ export default function Header() {
               {link.label}
             </a>
           ))}
-          <a
-            href="#connect"
-            onClick={() => setOpen(false)}
-            className="mt-2 rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-4 py-3 text-center text-sm font-semibold text-white dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950"
-          >
-            Join the Network
-          </a>
+          <UserMenu variant="mobile" onNavigate={() => setOpen(false)} />
         </nav>
       </div>
     </header>

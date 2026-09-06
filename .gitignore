@@ -19,6 +19,9 @@ next-env.d.ts
 # typescript
 *.tsbuildinfo
 
+# user uploads (runtime data)
+public/uploads/
+
 .vscode/*
 !.vscode/extensions.json
 .idea

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { ArrowRight, ChevronLeft, ChevronRight, Users, Waves, Sparkles } from 'lucide-react';
 import { batches } from '@/data/batches';
 
@@ -97,14 +98,14 @@ export default function Hero() {
             className="mt-8 flex flex-col gap-3 animate-fade-up sm:flex-row sm:items-center"
             style={{ animationDelay: '0.3s', animationFillMode: 'both' }}
           >
-            <a
-              href="#connect"
+            <Link
+              href="/register"
               className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-ocean-400/40 transition-all hover:shadow-reef-400/40 hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/50"
             >
               <span className="relative z-10">Become a Member</span>
               <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-            </a>
+            </Link>
             <a
               href="#about"
               className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-ocean-300 bg-white/60 px-6 py-3.5 text-sm font-semibold text-ocean-700 backdrop-blur-md transition-all hover:bg-white hover:border-ocean-400 hover:shadow-lg hover:shadow-ocean-200/30 dark:border-ocean-300/30 dark:bg-ocean-500/10 dark:text-white dark:hover:border-ocean-300/50 dark:hover:bg-ocean-500/20 dark:hover:shadow-transparent"
