@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #f8fbfd;
+    color: #114867;
+  }
+  html.dark body {
+    background-color: #042d40;
+    color: #e8f6fc;
+  }
+  ::selection {
+    background-color: #12a8df;
+    color: #fff;
+  }
+  html.dark ::selection {
+    background-color: #06a5d4;
+    color: #fff;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-grid {
+    background-image: linear-gradient(rgba(18, 168, 223, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(18, 168, 223, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .bg-grid-dark {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Dark-mode overrides for the shared texture helpers */
+  html.dark .bg-grid {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(circle, rgba(18, 168, 223, 0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  html.dark .bg-dots {
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+
+  .mask-fade-edges {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+
+  /* Noise texture overlay */
+  .noise-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-dark {
+    background: rgba(5, 46, 68, 0.5);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  html.dark .glass {
+    background: rgba(4, 45, 64, 0.85);
+  }
+
+  /* Animated gradient border using mask */
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(135deg, rgba(18, 168, 223, 0.5), rgba(8, 184, 182, 0.3), transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #12a8df 0%, #08b8b6 50%, #0885c0 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientPan 8s ease infinite;
+  }
+
+  /* Brighter stops keep gradient text legible on the dark ground.
+     Override background-image only — the background shorthand would reset
+     background-clip back to border-box (higher specificity wins) and the
+     gradient would paint as a block behind the transparent glyphs. */
+  html.dark .text-gradient {
+    background-image: linear-gradient(135deg, #6dd8ff 0%, #4debe8 50%, #a4e9ff 100%);
+  }
+
+  .bg-gradient-animated {
+    background: linear-gradient(135deg, #12a8df, #08b8b6, #0885c0, #069997);
+    background-size: 300% 300%;
+    animation: gradientPan 8s ease infinite;
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 40px -8px rgba(18, 168, 223, 0.4);
+  }
+
+  .shadow-glow-reef {
+    box-shadow: 0 0 40px -8px rgba(8, 184, 182, 0.4);
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #ecfbff;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #12a8df, #08b8b6);
+  border-radius: 9999px;
+  border: 2px solid #ecfbff;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0885c0, #069997);
+}
+
+/* Dark-mode scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  background: #042d40;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #0888b4;
+  border: 2px solid #042d40;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #22c0eb;
+}
+
+/* Reveal on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Scroll progress bar */
+#scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  z-index: 100;
+  background: linear-gradient(90deg, #12a8df, #08b8b6, #1cd6d3);
+  width: 0%;
+  transition: width 0.1s ease-out;
+  box-shadow: 0 0 10px rgba(18, 168, 223, 0.6);
+}
