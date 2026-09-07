@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useActionState, useState, useRef, type ChangeEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
-  CreditCard, FileText, ChevronDown, CheckCircle2, Loader2, ArrowRight, X, Lock,
+  CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft,
 } from 'lucide-react';
 import { batches } from '@/data/batches';
-import { register, type RegisterState } from '@/lib/actions/register';
+import { updateProfile } from '@/lib/actions/profile';
+import type { ProfileState } from '@/lib/profile';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
 
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
@@ -14,53 +17,69 @@ const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 type DocType = 'certificate' | 'card';
 type Errors = Partial<Record<string, string>>;
 
+export interface ProfileEditInitial {
+  name: string;
+  email: string;
+  phone: string;
+  studentId: string;
+  batch: string;
+  docType: DocType;
+  photo: string; // current Cloudinary URL ('' if none)
+  doc: string; // current Cloudinary URL ('' if none)
+}
+
 const formatSize = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
-/**
- * useActionState has no reset API, so successful submissions are cleared by
- * remounting the form via a key bump on this wrapper.
- */
-export default function RegisterForm() {
-  const [instance, setInstance] = useState(0);
-  return <RegisterFormFields key={instance} onReset={() => setInstance((i) => i + 1)} />;
-}
-
-function RegisterFormFields({ onReset }: { onReset: () => void }) {
-  const [state, formAction, isPending] = useActionState<RegisterState, FormData>(register, {
+export default function ProfileEditForm({ initial }: { initial: ProfileEditInitial }) {
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState<ProfileState, FormData>(updateProfile, {
     status: 'idle',
   });
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    studentId: '',
-    batch: '',
-    password: '',
-    confirmPassword: '',
+    name: initial.name,
+    phone: initial.phone,
+    batch: initial.batch,
   });
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [docType, setDocType] = useState<DocType>('certificate');
-  const [doc, setDoc] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [objectUrl, setObjectUrl] = useState('');
+  const [docType, setDocType] = useState<DocType>(initial.docType);
+  const [docFile, setDocFile] = useState<File | null>(null);
   // The native inputs are the source of truth on submit — the form action
   // serializes the DOM, so a file must STAY in its input or it never reaches
   // the server. State is only for preview/validation.
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-  // Local errors cover instant file-selection checks; text-field validation
-  // comes back from the server action.
+  // Instant file-selection feedback; text-field errors come back from the server.
   const [errors, setErrors] = useState<Errors>({});
 
   const serverErrors = state.status === 'error' ? state.errors : {};
+  const photoPreview = objectUrl || initial.photo;
 
   // Revoke the preview object-URL when it is replaced or on unmount
   useEffect(() => {
     return () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [photoUrl]);
+  }, [objectUrl]);
+
+  // Pull fresh server data into the page behind this form after a save, and
+  // drop the just-uploaded file selections so a second "Save" doesn't
+  // re-upload (and replace) the same assets. The save result arrives
+  // asynchronously, so this cleanup can't live in an event handler — which is
+  // why the set-state-in-effect rule is silenced for this effect only.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (state.status !== 'success') return;
+    setPhotoFile(null);
+    setDocFile(null);
+    setObjectUrl(''); // the [objectUrl] effect's cleanup revokes it
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    if (docInputRef.current) docInputRef.current.value = '';
+    router.refresh();
+  }, [state, router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const update =
     (key: keyof typeof form) =>
@@ -83,9 +102,9 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
       return;
     }
     setErrors((p) => ({ ...p, photo: undefined }));
-    if (photoUrl) URL.revokeObjectURL(photoUrl);
-    setPhotoUrl(URL.createObjectURL(file));
-    setPhoto(file);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    setObjectUrl(URL.createObjectURL(file));
+    setPhotoFile(file);
   };
 
   const handleDoc = (e: ChangeEvent<HTMLInputElement>) => {
@@ -102,64 +121,73 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
       return;
     }
     setErrors((p) => ({ ...p, doc: undefined }));
-    setDoc(file);
+    setDocFile(file);
   };
 
-  const removePhoto = () => {
-    if (photoUrl) URL.revokeObjectURL(photoUrl);
-    setPhotoUrl('');
-    setPhoto(null);
+  const removePhotoSelection = () => {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    setObjectUrl('');
+    setPhotoFile(null);
     if (photoInputRef.current) photoInputRef.current.value = '';
   };
 
-  const removeDoc = () => {
-    setDoc(null);
+  const removeDocSelection = () => {
+    setDocFile(null);
     if (docInputRef.current) docInputRef.current.value = '';
   };
 
-  if (state.status === 'success') {
-    const firstName = state.name.trim().split(/\s+/)[0];
-    return (
-      <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-reef-50 ring-1 ring-reef-300 animate-fade-up dark:bg-reef-500/20 dark:ring-reef-500/30">
-          <CheckCircle2 className="h-8 w-8 text-reef-600 dark:text-reef-300" strokeWidth={2} />
-        </span>
-        <h2 className="mt-5 font-display text-2xl font-bold text-ocean-900 animate-fade-up dark:text-white" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
-          Welcome aboard, {firstName}!
-        </h2>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-ocean-600/70 animate-fade-up dark:text-ocean-100/70" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
-          Your account was created and is awaiting verification. You can log in
-          now — a batch moderator will verify your details before your profile
-          appears in the directory.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-          <a
-            href="/login"
-            className="text-sm font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
-          >
-            Go to login →
-          </a>
-          <button
-            type="button"
-            onClick={onReset}
-            className="text-sm font-semibold text-ocean-500 transition-colors hover:text-ocean-600 dark:text-ocean-300/70 dark:hover:text-ocean-200"
-          >
-            Register another member
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const lockedCls = `${inputCls()} read-only:cursor-not-allowed read-only:opacity-70`;
 
   return (
     <form action={formAction} className="space-y-5" noValidate>
-      <div>
-        <h2 className="font-display text-2xl font-bold tracking-tight text-ocean-900 dark:text-white">
-          Create your account
-        </h2>
-        <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">
-          Fields marked optional can be added later from your profile.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-bold tracking-tight text-ocean-900 dark:text-white">
+            Edit profile
+          </h2>
+          <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">
+            Your email and Student ID identify you across the network and can&apos;t be changed.
+          </p>
+        </div>
+        <Link
+          href="/profile"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to profile
+        </Link>
+      </div>
+
+      {/* Locked identity fields */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field id="email" label="Email">
+          <div className="group relative">
+            <Mail className={iconCls()} />
+            <input
+              id="email"
+              type="email"
+              value={initial.email}
+              readOnly
+              autoComplete="off"
+              className={lockedCls}
+            />
+            <Lock className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ocean-300 dark:text-ocean-500" />
+          </div>
+        </Field>
+        <Field id="studentId" label="Student ID">
+          <div className="group relative">
+            <IdCard className={iconCls()} />
+            <input
+              id="studentId"
+              type="text"
+              value={initial.studentId}
+              readOnly
+              autoComplete="off"
+              className={lockedCls}
+            />
+            <Lock className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ocean-300 dark:text-ocean-500" />
+          </div>
+        </Field>
       </div>
 
       {/* Name */}
@@ -180,24 +208,8 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
         </div>
       </Field>
 
-      {/* Email + Phone */}
+      {/* Phone + Batch */}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="email" label="Email" error={serverErrors.email}>
-          <div className="group relative">
-            <Mail className={iconCls(!!serverErrors.email)} />
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={form.email}
-              onChange={update('email')}
-              placeholder="you@example.com"
-              aria-invalid={!!serverErrors.email}
-              className={inputCls(!!serverErrors.email)}
-            />
-          </div>
-        </Field>
         <Field id="phone" label="Phone" error={serverErrors.phone}>
           <div className="group relative">
             <Phone className={iconCls(!!serverErrors.phone)} />
@@ -214,25 +226,6 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
             />
           </div>
         </Field>
-      </div>
-
-      {/* Student ID + Batch */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="studentId" label="Student ID" error={serverErrors.studentId}>
-          <div className="group relative">
-            <IdCard className={iconCls(!!serverErrors.studentId)} />
-            <input
-              id="studentId"
-              name="studentId"
-              type="text"
-              value={form.studentId}
-              onChange={update('studentId')}
-              placeholder="e.g. 1901078"
-              aria-invalid={!!serverErrors.studentId}
-              className={inputCls(!!serverErrors.studentId)}
-            />
-          </div>
-        </Field>
         <Field id="batch" label="Batch" error={serverErrors.batch}>
           <div className="group relative">
             <GraduationCap className={iconCls(!!serverErrors.batch)} />
@@ -244,9 +237,6 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
               aria-invalid={!!serverErrors.batch}
               className={`${inputCls(!!serverErrors.batch)} appearance-none pr-10`}
             >
-              <option value="" disabled>
-                Select your batch
-              </option>
               {batches.map((b) => (
                 <option key={b.year} value={b.year}>
                   {b.year} — {b.label}
@@ -258,55 +248,19 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
         </Field>
       </div>
 
-      {/* Password + Confirm */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="password" label="Password" error={serverErrors.password}>
-          <div className="group relative">
-            <Lock className={iconCls(!!serverErrors.password)} />
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={update('password')}
-              placeholder="At least 8 characters"
-              aria-invalid={!!serverErrors.password}
-              className={inputCls(!!serverErrors.password)}
-            />
-          </div>
-        </Field>
-        <Field id="confirmPassword" label="Confirm Password" error={serverErrors.confirmPassword}>
-          <div className="group relative">
-            <Lock className={iconCls(!!serverErrors.confirmPassword)} />
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={update('confirmPassword')}
-              placeholder="Re-enter your password"
-              aria-invalid={!!serverErrors.confirmPassword}
-              className={inputCls(!!serverErrors.confirmPassword)}
-            />
-          </div>
-        </Field>
-      </div>
-
-      {/* Photo upload */}
+      {/* Photo */}
       <Field id="photo" label="Profile Photo" optional error={errors.photo ?? serverErrors.photo}>
         <div
           className={`flex items-center gap-4 rounded-xl border-2 border-dashed p-3.5 transition-all ${
-            photo
+            photoFile
               ? 'border-reef-400/70 bg-reef-50/50 dark:border-reef-500/50 dark:bg-reef-500/10'
               : 'border-ocean-200 bg-white/40 dark:border-ocean-800 dark:bg-ocean-950/40'
           }`}
         >
-          {photoUrl ? (
+          {photoPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={photoUrl}
+              src={photoPreview}
               alt="Profile preview"
               className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-reef-400/40"
             />
@@ -326,21 +280,27 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
               className="sr-only"
             />
             <span className="block truncate text-sm font-medium text-ocean-800 dark:text-ocean-100">
-              {photo ? photo.name : 'Choose a photo'}
+              {photoFile ? photoFile.name : initial.photo ? 'Choose a new photo' : 'Add a photo'}
             </span>
             <span className="block text-xs text-ocean-400 dark:text-ocean-300/60">
-              {photo ? `${formatSize(photo.size)} · click to replace` : `JPG or PNG, up to ${MAX_FILE_MB} MB`}
+              {photoFile
+                ? `${formatSize(photoFile.size)} · click to replace`
+                : initial.photo
+                  ? `Current photo · JPG or PNG, up to ${MAX_FILE_MB} MB`
+                  : `JPG or PNG, up to ${MAX_FILE_MB} MB`}
             </span>
           </label>
-          {photo && (
+          {photoFile ? (
             <button
               type="button"
-              aria-label="Remove photo"
-              onClick={removePhoto}
+              aria-label="Discard new photo"
+              onClick={removePhotoSelection}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ocean-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-ocean-300 dark:hover:bg-red-500/10 dark:hover:text-red-400"
             >
               <X className="h-4 w-4" />
             </button>
+          ) : (
+            <Lock className="hidden h-4 w-4 text-ocean-300 dark:text-ocean-500" aria-hidden />
           )}
         </div>
       </Field>
@@ -383,7 +343,7 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
 
           <label
             className={`group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3.5 transition-all ${
-              doc
+              docFile
                 ? 'border-reef-400/70 bg-reef-50/50 dark:border-reef-500/50 dark:bg-reef-500/10'
                 : 'border-ocean-200 bg-white/40 hover:border-ocean-300 hover:bg-white/70 dark:border-ocean-800 dark:bg-ocean-950/40 dark:hover:border-ocean-700'
             }`}
@@ -398,33 +358,39 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
               className="sr-only"
             />
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ocean-100/70 text-ocean-600 dark:bg-ocean-800/60 dark:text-ocean-200">
-              {doc ? <FileText className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
+              {docFile ? <FileText className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-ocean-800 dark:text-ocean-100">
-                {doc
-                  ? doc.name
-                  : docType === 'certificate'
-                    ? 'Upload graduation certificate'
-                    : 'Upload registration card'}
+                {docFile
+                  ? docFile.name
+                  : initial.doc
+                    ? 'Upload a replacement document'
+                    : docType === 'certificate'
+                      ? 'Upload graduation certificate'
+                      : 'Upload registration card'}
               </span>
               <span className="block text-xs text-ocean-400 dark:text-ocean-300/60">
-                {doc ? `${formatSize(doc.size)} · click to replace` : `Image or PDF, up to ${MAX_FILE_MB} MB`}
+                {docFile
+                  ? `${formatSize(docFile.size)} · click to replace`
+                  : initial.doc
+                    ? 'Current document stays until you upload a new one · image or PDF'
+                    : `Image or PDF, up to ${MAX_FILE_MB} MB`}
               </span>
             </span>
-            {doc && (
+            {docFile && (
               <span
                 role="button"
                 tabIndex={0}
-                aria-label="Remove document"
+                aria-label="Discard new document"
                 onClick={(e) => {
                   e.preventDefault();
-                  removeDoc();
+                  removeDocSelection();
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    removeDoc();
+                    removeDocSelection();
                   }
                 }}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ocean-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-ocean-300 dark:hover:bg-red-500/10 dark:hover:text-red-400"
@@ -433,9 +399,17 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
               </span>
             )}
           </label>
-          <p className="text-xs leading-relaxed text-ocean-400 dark:text-ocean-300/50">
-            Choose either document — it helps your batch moderator verify you faster.
-          </p>
+          {initial.doc && !docFile && (
+            <a
+              href={initial.doc}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              View current document
+            </a>
+          )}
         </div>
       </Field>
 
@@ -444,8 +418,14 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
           {state.message}
         </p>
       )}
+      {state.status === 'success' && (
+        <p className="flex items-center gap-2 rounded-xl border border-reef-200 bg-reef-50/80 px-4 py-3 text-sm font-medium text-reef-700 dark:border-reef-500/30 dark:bg-reef-500/10 dark:text-reef-300" role="status">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Profile updated successfully.
+        </p>
+      )}
 
-      {/* Submit */}
+      {/* Save */}
       <button
         type="submit"
         disabled={isPending}
@@ -454,19 +434,15 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
         {isPending ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Creating your account…
+            Saving changes…
           </>
         ) : (
           <>
-            <span className="relative z-10">Create account</span>
-            <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            <span className="relative z-10">Save changes</span>
             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
           </>
         )}
       </button>
-      <p className="text-center text-xs text-ocean-400 dark:text-ocean-300/40">
-        By registering, you agree to the association&apos;s code of conduct.
-      </p>
     </form>
   );
 }

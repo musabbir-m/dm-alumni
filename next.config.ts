@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       // Photo + verification document can total ~10 MB; 12 MB leaves room
       // for multipart boundaries. Keep in sync with MAX_FILE_MB in
-      // src/lib/actions/register.ts.
+      // src/lib/uploads.ts.
       bodySizeLimit: '12mb',
     },
   },

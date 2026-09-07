@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
 
+/**
+ * Per-file upload cap shared by the client forms. Must match MAX_FILE_MB in
+ * src/lib/uploads.ts (the server-side source of truth).
+ */
+export const MAX_FILE_MB = 5;
+
 /** Shared text-input styling for the auth forms (register, login, …). */
 export const inputCls = (hasError?: boolean) =>
   `w-full rounded-xl border py-3 pl-10 pr-4 text-sm text-ocean-900 placeholder-ocean-300 transition-all focus:outline-none focus:ring-2 focus:bg-white dark:bg-ocean-950/60 dark:text-white dark:placeholder-ocean-300/40 dark:focus:bg-ocean-950 ${

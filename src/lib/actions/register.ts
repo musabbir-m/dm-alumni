@@ -1,26 +1,19 @@
 'use server';
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { hash } from 'bcryptjs';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
 import { batches } from '@/data/batches';
-
-const MAX_FILE_MB = 5;
-const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
-
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
-const DOC_TYPES = [...IMAGE_TYPES, 'application/pdf'] as const;
-
-const EXT_BY_TYPE: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'application/pdf': 'pdf',
-};
+import { destroyCloudinaryAsset, optimizedImageUrl } from '@/lib/cloudinary';
+import type { CloudinaryAsset } from '@/lib/cloudinary';
+import {
+  DOC_FOLDER,
+  DOC_TYPES,
+  IMAGE_TYPES,
+  PHOTO_FOLDER,
+  saveUpload,
+} from '@/lib/uploads';
 
 export type RegisterState =
   | { status: 'idle' }
@@ -56,28 +49,6 @@ function zodFieldErrors(error: z.ZodError): Record<string, string> {
   return out;
 }
 
-async function saveUpload(
-  entry: FormDataEntryValue | null,
-  allowed: readonly string[],
-  folder: 'photos' | 'docs'
-): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  if (!entry || typeof entry === 'string' || entry.size === 0) return { ok: true, url: '' };
-
-  const ext = EXT_BY_TYPE[entry.type];
-  if (!ext || !allowed.includes(entry.type)) {
-    return { ok: false, error: 'Unsupported file type' };
-  }
-  if (entry.size > MAX_FILE_BYTES) {
-    return { ok: false, error: `File must be under ${MAX_FILE_MB} MB` };
-  }
-
-  const dir = path.join(process.cwd(), 'public', 'uploads', folder);
-  await mkdir(dir, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(dir, filename), Buffer.from(await entry.arrayBuffer()));
-  return { ok: true, url: `/uploads/${folder}/${filename}` };
-}
-
 export async function register(
   _prev: RegisterState,
   formData: FormData
@@ -97,6 +68,10 @@ export async function register(
   }
   const data = parsed.data;
 
+  // Track successful uploads so a later failure can destroy them instead of
+  // leaving orphaned assets in the Cloudinary account.
+  const uploaded: CloudinaryAsset[] = [];
+
   try {
     await connectDB();
 
@@ -111,10 +86,16 @@ export async function register(
       return { status: 'error', errors };
     }
 
-    const photo = await saveUpload(formData.get('photo'), IMAGE_TYPES, 'photos');
+    const photo = await saveUpload(formData.get('photo'), IMAGE_TYPES, PHOTO_FOLDER);
     if (!photo.ok) return { status: 'error', errors: { photo: photo.error } };
-    const doc = await saveUpload(formData.get('document'), DOC_TYPES, 'docs');
-    if (!doc.ok) return { status: 'error', errors: { doc: doc.error } };
+    if (photo.asset) uploaded.push(photo.asset);
+
+    const doc = await saveUpload(formData.get('document'), DOC_TYPES, DOC_FOLDER);
+    if (!doc.ok) {
+      await Promise.all(uploaded.map(destroyCloudinaryAsset));
+      return { status: 'error', errors: { doc: doc.error } };
+    }
+    if (doc.asset) uploaded.push(doc.asset);
 
     const passwordHash = await hash(data.password, 12);
     await User.create({
@@ -124,15 +105,18 @@ export async function register(
       studentId: data.studentId,
       batch: data.batch,
       passwordHash,
-      photo: photo.url || null,
-      docType: doc.url ? data.docType : null,
-      doc: doc.url || null,
+      // MongoDB stores only the delivered Cloudinary URLs.
+      photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : null,
+      docType: doc.asset ? data.docType : null,
+      doc: doc.asset ? doc.asset.secureUrl : null,
       // role/verificationStatus default to 'alumni'/'pending' — a batch
       // moderator flips the status after registration.
     });
 
     return { status: 'success', name: data.name };
   } catch (err) {
+    if (uploaded.length) await Promise.all(uploaded.map(destroyCloudinaryAsset));
+
     // Duplicate-key race (unique indexes) despite the pre-check above
     if ((err as { code?: number })?.code === 11000) {
       return {

@@ -10,6 +10,7 @@ The project started as a Bolt-generated single-page marketing site (React/Vite).
 
 - **Next.js 16 (App Router) + React 19 + TypeScript** — Turbopack by default for dev and build
 - **MongoDB via Mongoose 9** (`src/lib/db.ts` cached connection; `src/lib/models/User.ts`) — backend lives in server actions, no Express
+- **Cloudinary 2** for file storage (`src/lib/cloudinary.ts`) — registration uploads are streamed to Cloudinary; MongoDB stores only the delivered URLs
 - **Auth.js v5 (`next-auth@5.0.0-beta.32`)** — Credentials provider, JWT sessions, `src/auth.ts` + `src/app/api/auth/[...nextauth]/route.ts` + `src/types/next-auth.d.ts`
 - **zod 4** for server-side form validation, **bcryptjs** for password hashing (explicit at call sites, no model hooks), **tsx** for scripts
 - Tailwind CSS 3 (custom theme — see Design System below)
@@ -19,14 +20,15 @@ The project started as a Bolt-generated single-page marketing site (React/Vite).
   - `src/app/page.tsx` — composes the single-page scroll site (Server Component)
   - `src/app/login/page.tsx` + `src/components/LoginForm.tsx` — credentials login (client `signIn`, redirect to `/profile`)
   - `src/app/register/page.tsx` + `src/components/RegisterForm.tsx` — registration via the `register` server action (`useActionState`)
-  - `src/app/profile/page.tsx` — server-rendered profile (`await auth()`; redirects to `/login` when signed out)
+  - `src/app/profile/page.tsx` — server-rendered profile (`await auth()`; redirects to `/login` when signed out); "Edit profile" CTA links to `/profile/edit`
+  - `src/app/profile/edit/page.tsx` + `src/components/ProfileEditForm.tsx` — self-service profile editing via the `updateProfile` server action (email + Student ID are locked identity fields)
   - `src/app/api/auth/[...nextauth]/route.ts` — Auth.js route handlers
   - `src/app/globals.css` — Tailwind layers + custom helpers (was `src/index.css` under Vite)
-  - `src/components/` — `Header`, `Hero`, `About`, `Batches`, `Impact`, `Events`, `Connect`, `Footer`, `ThemeToggle`, `ScrollEffects`, `RegisterForm`, `LoginForm`, `UserMenu`, `LogoutButton`, `form-ui` (shared `Field`/`inputCls`/`iconCls` for auth forms)
+  - `src/components/` — `Header`, `Hero`, `About`, `Batches`, `Impact`, `Events`, `Connect`, `Footer`, `ThemeToggle`, `ScrollEffects`, `RegisterForm`, `LoginForm`, `ProfileEditForm`, `UserMenu`, `LogoutButton`, `form-ui` (shared `Field`/`inputCls`/`iconCls`/`MAX_FILE_MB` for auth forms)
   - `src/hooks/` — `useTheme`, `useReveal`; `src/data/batches.ts` — static batch data
-  - `src/lib/` — `db.ts` (Mongoose connect, globalThis-cached), `models/User.ts` (schema + `Role`/`VerificationStatus` types), `actions/register.ts` (`'use server'`)
-- **Client/server split:** `Header`, `Hero`, `Impact`, `Connect`, `ThemeToggle`, `ScrollEffects`, `RegisterForm`, `LoginForm`, `UserMenu`, `LogoutButton` are `'use client'` (hooks/interactivity). `About`, `Batches`, `Events`, `Footer` and all pages/layouts render on the server. Keep new interactive components client-side with `'use client'`; pages/layouts stay server Components.
-- Routes: `/` (marketing scroll site), `/register` (alumni registration), `/login`, `/profile` (auth-required). Home CTAs ("Join the Network", "Become a Member") link to `/register`. `/` stays statically prerendered — `Header`/`UserMenu` read the session client-side via `fetch('/api/auth/session')` rather than `auth()` on the server.
+  - `src/lib/` — `db.ts` (Mongoose connect, globalThis-cached), `models/User.ts` (schema + `Role`/`VerificationStatus` types), `cloudinary.ts` (upload/destroy, configured lazily from `CLOUDINARY_URL`), `uploads.ts` (shared upload rules + `saveUpload`), `profile.ts` (core `applyProfileUpdate`), `actions/register.ts` + `actions/profile.ts` (`'use server'`)
+- **Client/server split:** `Header`, `Hero`, `Impact`, `Connect`, `ThemeToggle`, `ScrollEffects`, `RegisterForm`, `LoginForm`, `ProfileEditForm`, `UserMenu`, `LogoutButton` are `'use client'` (hooks/interactivity). `About`, `Batches`, `Events`, `Footer` and all pages/layouts render on the server. Keep new interactive components client-side with `'use client'`; pages/layouts stay server Components.
+- Routes: `/` (marketing scroll site), `/register` (alumni registration), `/login`, `/profile` (auth-required), `/profile/edit` (auth-required). Home CTAs ("Join the Network", "Become a Member") link to `/register`. `/` stays statically prerendered — `Header`/`UserMenu` read the session client-side via `fetch('/api/auth/session')` rather than `auth()` on the server.
 
 ## Remaining Roadmap
 
@@ -34,7 +36,6 @@ The project started as a Bolt-generated single-page marketing site (React/Vite).
 - **Moderator verification UI** — a moderator of batch X sees pending members of batch X and verifies/rejects them
 - **Admin user management** — admins see all users, promote moderators
 - **Route protection via `proxy.ts`** (Next 16's renamed middleware) if client-side gating ever feels thin
-- Swap local `public/uploads/` storage for cloud storage (S3/Cloudinary) when deploying
 - `src/data/batches.ts` is still static placeholder data to be replaced by MongoDB-backed data
 
 ## Commands
@@ -63,16 +64,18 @@ Run `npm run lint` and `npm run typecheck` after changes; there is no test suite
 - **Static data:** `src/data/batches.ts` holds batch info (year, label, motto, image, count) for 2018–2023. This is placeholder data to be replaced by MongoDB-backed data. The register action validates `batch` against this list.
 - **Animations:** `src/hooks/useReveal.ts` powers scroll-reveal effects (mounted once via `ScrollEffects`); many Tailwind keyframe animations are defined in `tailwind.config.js` (`aurora`, `marquee`, `glow-pulse`, etc.) and used across components.
 - **Auth flow:** Credentials login (`src/auth.ts`) → JWT session carrying `id`/`role`/`verificationStatus` → surfaced on `session.user` via `src/types/next-auth.d.ts`. `authorize` returns only identity (the profile page re-reads the full record by id). Pages that need auth use `const session = await auth()` + `redirect('/login')` — this makes them dynamic, which is correct.
-- **Server actions:** live in `src/lib/actions/` (`'use server'`). Such files may **only export async functions** — export shared types as `export type` only; constants must live elsewhere. Forms consume them with `useActionState` (`RegisterForm` is the pattern: named inputs, server-returned field errors, `isPending`, success state cleared by remounting an inner component via a key bump). `next.config.ts` raises `experimental.serverActions.bodySizeLimit` to `'12mb'` for the two 5 MB uploads — keep in sync with `MAX_FILE_MB` in `register.ts`.
-- **Uploads:** `public/uploads/{photos,docs}/` (gitignored), written as `<uuid>.<ext>` by `register.ts`; DB stores public URL paths. Cloud storage swap is a future item.
-- **Env vars** (`.env.local`, gitignored; see `.env.example`): `MONGODB_URI`, `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`. `tsx` scripts don't auto-load `.env.local` — `scripts/seed.ts` parses it manually.
+- **Server actions:** live in `src/lib/actions/` (`'use server'`). Such files may **only export async functions** — export shared types as `export type` only; constants must live elsewhere. Forms consume them with `useActionState` (`RegisterForm` is the pattern: named inputs, server-returned field errors, `isPending`, success state cleared by remounting an inner component via a key bump). `next.config.ts` raises `experimental.serverActions.bodySizeLimit` to `'12mb'` for the two 5 MB uploads — keep in sync with `MAX_FILE_MB` in `src/lib/uploads.ts`.
+- **Uploads:** photo + verification document uploads are uploaded to Cloudinary folders `dm-alumni/photos` / `dm-alumni/docs` (`src/lib/cloudinary.ts`); the DB stores the delivered `secure_url` (the photo URL gets `f_auto,q_auto` delivery params via `optimizedImageUrl`). Shared rules (size/type caps, folder names, `saveUpload`) live in `src/lib/uploads.ts` — reuse for any new upload surface. If anything fails after an upload succeeded, the action destroys the already-uploaded assets so no orphans accumulate. `public/uploads/` is unused legacy from pre-Cloudinary days. Note: profile/directory images render via plain `<img>` — switching to `next/image` would need `res.cloudinary.com` (and the Pexels hosts) in `images.remotePatterns`.
+- **Gotcha (file inputs + server actions):** forms submit what's in the DOM — `useActionState` serializes the form element, and a file reaches the server only if it's still in its `<input type="file">` on submit. **Never clear `input.value` after reading a valid pick** (that also clears `files`, so the upload silently never happens — a real bug we shipped and fixed); only clear it when rejecting an invalid pick or on an explicit discard (via a ref). React `File` state is for preview/validation only.
+- **Profile edit:** `src/lib/profile.ts` (`applyProfileUpdate`) holds the core logic outside the `'use server'` boundary so tsx scripts can exercise it directly; `src/lib/actions/profile.ts` (`updateProfile`) is the thin auth wrapper. Email and Student ID are identity fields and never accepted from the form. File inputs are optional — absent means keep current. Replaced Cloudinary assets are destroyed **after** `user.save()` succeeds (public_id derived back from the stored URL via `cloudinaryAssetFromUrl`, which strips transform/version segments). Verification status is intentionally not reset on edit (open product question if it should be).
+- **Env vars** (`.env.local`, gitignored; see `.env.example`): `MONGODB_URI`, `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CLOUDINARY_URL`. `tsx` scripts don't auto-load `.env.local` — `scripts/seed.ts` parses it manually. **Read env vars lazily** (inside functions, not at module top-level) — see the comment in `db.ts`: ESM imports evaluate before scripts can load `.env.local`, so a module-level read silently falls back to defaults.
 - **Gotcha:** TS module augmentation does **not** follow `export *` re-exports — `declare module 'next-auth/jwt'` silently no-ops (its types are `export * from '@auth/core/jwt'`). Augment `@auth/core/jwt` instead; augmenting `next-auth` works because its re-exports are named.
 - **Verification gating:** registration sets `verificationStatus: 'pending'`; login is allowed while pending (gates directory visibility, not auth). Moderators/admins flip it later.
 
 ## Planned Features (acceptance criteria)
 
 1. **Alumni registration** — new alumni can register an account.
-2. **Profile** — after login, users land on their profile showing their information.
+2. **Profile** — after login, users land on their profile showing their information, and can edit everything except email and Student ID (`/profile/edit`).
 3. **Batch directory** — logged-in users can browse all alumni grouped by batch.
 4. **Moderator role** — a moderator sees one specific batch and verifies whether a member is a known/genuine student.
 5. **Admin role** — an admin can see all users/alumni.

@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-  Waves, ArrowLeft, Mail, Phone, IdCard, GraduationCap, Calendar,
-  Clock, CheckCircle2, XCircle, ShieldCheck, FileText,
+  Waves, ArrowLeft, Mail, Phone, IdCard, GraduationCap,
+  Clock, CheckCircle2, XCircle, ShieldCheck, FileText, Pencil,
 } from 'lucide-react';
 import { auth } from '@/auth';
 import { connectDB } from '@/lib/db';
@@ -229,10 +229,13 @@ export default async function ProfilePage() {
                     'No verification document uploaded'
                   )}
                 </div>
-                <p className="flex items-center gap-1.5 text-xs text-ocean-400 dark:text-ocean-300/50">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Need to update your details? Contact a batch moderator.
-                </p>
+                <Link
+                  href="/profile/edit"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-ocean-300/40 transition-all hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit profile
+                </Link>
               </div>
             </div>
           </div>
