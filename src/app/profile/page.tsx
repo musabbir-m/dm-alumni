@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import {
   Waves, ArrowLeft, Mail, Phone, IdCard, GraduationCap,
   Clock, CheckCircle2, XCircle, ShieldCheck, FileText, Pencil,
 } from 'lucide-react';
-import { auth } from '@/auth';
-import { connectDB } from '@/lib/db';
-import User from '@/lib/models/User';
+import { requireUser } from '@/lib/auth';
 import { batches } from '@/data/batches';
 import ThemeToggle from '@/components/ThemeToggle';
 import LogoutButton from '@/components/LogoutButton';
@@ -43,12 +40,7 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 export default async function ProfilePage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect('/login');
-
-  await connectDB();
-  const user = await User.findById(session.user.id).lean();
-  if (!user) redirect('/login');
+  const user = await requireUser();
 
   const status = user.verificationStatus ?? 'pending';
   const role = user.role ?? 'alumni';

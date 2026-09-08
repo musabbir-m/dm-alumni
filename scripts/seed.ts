@@ -1,16 +1,20 @@
 /**
- * Creates the first admin account so an admin can bootstrap moderators.
+ * Creates the first admin record so an admin can bootstrap moderators.
  *
  *   npm run seed
  *
- * Reads MONGODB_URI / ADMIN_EMAIL / ADMIN_PASSWORD from the environment or
- * .env.local (tsx does not load .env files itself). Idempotent — exits
- * without changes if the admin already exists.
+ * Reads MONGODB_URI / ADMIN_EMAIL from the environment or .env.local (tsx
+ * does not load .env files itself). Idempotent — exits without changes if
+ * the admin already exists.
+ *
+ * Credentials live in Clerk, not here: create the matching Clerk user with
+ * the same email in the Clerk dashboard (and verify it) — it links to this
+ * record automatically on first sign-in via the verified-email lazy link in
+ * src/lib/auth.ts.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import mongoose from 'mongoose';
-import { hash } from 'bcryptjs';
 import { connectDB } from '../src/lib/db';
 import User from '../src/lib/models/User';
 
@@ -34,12 +38,15 @@ async function main() {
   loadEnvLocal();
 
   const email = (process.env.ADMIN_EMAIL ?? 'admin@dm-alumni.local').toLowerCase();
-  const password = process.env.ADMIN_PASSWORD ?? 'ChangeMe!2026';
-  if (password.length < 8) {
-    throw new Error('ADMIN_PASSWORD must be at least 8 characters');
-  }
 
   await connectDB();
+
+  // Housekeeping for the Auth.js → Clerk migration: strip now-unused
+  // password hashes and make sure the sparse unique clerkId index exists.
+  // Raw collection on purpose — passwordHash is no longer a schema path, so
+  // a model-level $unset would be filtered out by strict mode and no-op.
+  await User.collection.updateMany({}, { $unset: { passwordHash: '' } });
+  await User.syncIndexes();
 
   const existing = await User.findOne({ email });
   if (existing) {
@@ -55,12 +62,15 @@ async function main() {
     phone: '+880000000000',
     studentId: 'ADMIN-0001',
     batch: '2018',
-    passwordHash: await hash(password, 12),
     role: 'admin',
     verificationStatus: 'verified',
+    // No clerkId — set automatically when the admin first signs in with a
+    // verified Clerk account using this same email.
   });
 
-  console.log(`Created admin ${email} — change this password after first login.`);
+  console.log(
+    `Created admin ${email} — now create the matching Clerk user (same email, verified) in the Clerk dashboard; it will link automatically on first sign-in.`
+  );
 }
 
 main()

@@ -1,51 +1,38 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Waves, ArrowLeft, IdCard, ShieldCheck, Users } from 'lucide-react';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { getSessionUser } from '@/lib/auth';
-import CompleteProfileForm from '@/components/CompleteProfileForm';
+import { Waves, ArrowLeft, User, Users, Calendar } from 'lucide-react';
+import { auth } from '@clerk/nextjs/server';
+import { ThemedSignIn } from '@/components/ThemedAuthForms';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export const metadata: Metadata = {
-  title: 'Complete your profile — DM Alumni Association',
+  title: 'Sign in — DM Alumni Association',
   description:
-    'Finish joining the DM Alumni Association — add your student ID, batch, and photo to the account you just created.',
+    'Sign in to your DM Alumni Association account — your profile, the verified batch directory, and association events.',
 };
 
-// Step 2 of the two-step flow — step 1 (email + password + name) happened
-// on /sign-up. This page collects the alumni details.
-const steps = [
+const highlights = [
+  {
+    icon: User,
+    title: 'Your profile',
+    desc: 'Keep your details and photo up to date.',
+  },
   {
     icon: Users,
-    title: 'Tell us about you',
-    desc: 'Student ID, batch, and a photo — it takes less than two minutes.',
+    title: 'Batch directory',
+    desc: 'Browse verified alumni from every cohort.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Batch verification',
-    desc: 'A moderator from your batch confirms you are a genuine graduate.',
-  },
-  {
-    icon: IdCard,
-    title: 'Join the network',
-    desc: 'Access the batch directory, events, mentorship, and more.',
+    icon: Calendar,
+    title: 'Events & reunions',
+    desc: 'Never miss a meetup or announcement.',
   },
 ];
 
-export default async function RegisterPage() {
+export default async function SignInPage() {
   const { userId } = await auth();
-  // Anonymous visitors land here from the "Join the Network" CTAs — their
-  // intent is registration, so send them to sign-up, not sign-in.
-  if (!userId) redirect('/sign-up');
-
-  // Already completed (or a legacy record already linked) — nothing to do here.
-  const existing = await getSessionUser();
-  if (existing) redirect('/profile');
-
-  const cu = await currentUser();
-  const clerkEmail = cu?.primaryEmailAddress?.emailAddress ?? '';
-  const clerkName = [cu?.firstName, cu?.lastName].filter(Boolean).join(' ');
+  if (userId) redirect('/profile');
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
@@ -88,7 +75,7 @@ export default async function RegisterPage() {
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full overflow-hidden rounded-3xl border border-ocean-200/50 bg-white/60 shadow-2xl shadow-ocean-200/20 backdrop-blur-md dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl">
             <div className="grid lg:grid-cols-[2fr_3fr]">
-              {/* Left: brand + steps */}
+              {/* Left: brand + highlights */}
               <div className="relative flex flex-col overflow-hidden bg-gradient-to-br from-ocean-700 via-ocean-600 to-reef-600 p-8 dark:from-ocean-900 dark:via-ocean-800 dark:to-reef-900 sm:p-10 lg:p-12">
                 {/* Decorative orbs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -99,44 +86,51 @@ export default async function RegisterPage() {
 
                 <div className="relative">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-white backdrop-blur-md">
-                    Alumni Registration · Step 2 of 2
+                    Member Login
                   </span>
                   <h1 className="mt-5 font-display text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl text-balance">
-                    Almost there.{' '}
+                    Good to see you again.{' '}
                     <span className="bg-gradient-to-r from-reef-200 to-ocean-200 bg-clip-text text-transparent">
-                      Claim your place in the network.
+                      Your network is waiting.
                     </span>
                   </h1>
                   <p className="mt-4 text-sm leading-relaxed text-ocean-50/80">
-                    Your account is ready — add your alumni details to join
-                    every cohort since 2018 and the people who shared your
-                    classrooms, field drills, and first deployments.
+                    One account connects you to every cohort since 2018 — your
+                    batchmates, the directory, and everything the association
+                    is planning next.
                   </p>
                 </div>
 
                 <ul className="relative mt-8 space-y-5">
-                  {steps.map((step, i) => (
-                    <li key={step.title} className="flex items-start gap-3.5">
+                  {highlights.map((item) => (
+                    <li key={item.title} className="flex items-start gap-3.5">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-                        <step.icon className="h-5 w-5 text-reef-200" strokeWidth={2} />
+                        <item.icon className="h-5 w-5 text-reef-200" strokeWidth={2} />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-white">
-                          <span className="mr-1.5 text-reef-200">{i + 1}.</span>
-                          {step.title}
-                        </p>
+                        <p className="text-sm font-semibold text-white">{item.title}</p>
                         <p className="mt-0.5 text-xs leading-relaxed text-ocean-50/70">
-                          {step.desc}
+                          {item.desc}
                         </p>
                       </div>
                     </li>
                   ))}
                 </ul>
+
+                <p className="relative mt-auto hidden pt-8 text-xs text-ocean-50/60 lg:block">
+                  Not registered yet?{' '}
+                  <Link href="/sign-up" className="font-semibold text-reef-200 hover:text-white">
+                    Join the association →
+                  </Link>
+                </p>
               </div>
 
-              {/* Right: form */}
-              <div className="relative p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-10 lg:border-l lg:border-t-0 lg:dark:border-l">
-                <CompleteProfileForm clerkName={clerkName} clerkEmail={clerkEmail} />
+              {/* Right: Clerk sign-in (password reset + email verification
+                  screens are built in) */}
+              <div className="relative flex items-center justify-center p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-10 lg:border-l lg:border-t-0 lg:dark:border-l">
+                <div className="w-full max-w-sm">
+                  <ThemedSignIn />
+                </div>
               </div>
             </div>
           </div>

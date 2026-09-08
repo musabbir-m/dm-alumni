@@ -2,7 +2,7 @@
 
 import { LogOut, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { signOut } from 'next-auth/react';
+import { useClerk } from '@clerk/nextjs';
 
 export default function LogoutButton({
   className = '',
@@ -11,6 +11,7 @@ export default function LogoutButton({
   className?: string;
   label?: string;
 }) {
+  const { signOut } = useClerk();
   const [loading, setLoading] = useState(false);
 
   return (
@@ -19,7 +20,7 @@ export default function LogoutButton({
       disabled={loading}
       onClick={() => {
         setLoading(true);
-        void signOut({ callbackUrl: '/' });
+        void signOut({ redirectUrl: '/' });
       }}
       className={
         className ||

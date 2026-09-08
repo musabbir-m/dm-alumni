@@ -1,34 +1,41 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Waves, ArrowLeft, User, Users, Calendar } from 'lucide-react';
-import LoginForm from '@/components/LoginForm';
+import { redirect } from 'next/navigation';
+import { Waves, ArrowLeft, UserPlus, ShieldCheck, Users } from 'lucide-react';
+import { auth } from '@clerk/nextjs/server';
+import { ThemedSignUp } from '@/components/ThemedAuthForms';
 import ThemeToggle from '@/components/ThemeToggle';
 
 export const metadata: Metadata = {
-  title: 'Login — DM Alumni Association',
+  title: 'Sign up — DM Alumni Association',
   description:
-    'Sign in to your DM Alumni Association account — your profile, the verified batch directory, and association events.',
+    'Create your DM Alumni Association account — reconnect with your batch, the verified alumni directory, events, and mentorship.',
 };
 
-const highlights = [
+// Step 1 of the two-step flow: Clerk collects email + password + name here;
+// step 2 (/register) collects the alumni details.
+const steps = [
   {
-    icon: User,
-    title: 'Your profile',
-    desc: 'Keep your details and photo up to date.',
+    icon: UserPlus,
+    title: 'Create your account',
+    desc: 'Sign up with your email and a password.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Verify your email',
+    desc: 'Enter the code we send to your inbox.',
   },
   {
     icon: Users,
-    title: 'Batch directory',
-    desc: 'Browse verified alumni from every cohort.',
-  },
-  {
-    icon: Calendar,
-    title: 'Events & reunions',
-    desc: 'Never miss a meetup or announcement.',
+    title: 'Complete your profile',
+    desc: 'Student ID, batch, and a photo — then a batch moderator verifies you.',
   },
 ];
 
-export default function LoginPage() {
+export default async function SignUpPage() {
+  const { userId } = await auth();
+  if (userId) redirect('/profile');
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
       {/* Animated aurora orbs */}
@@ -70,7 +77,7 @@ export default function LoginPage() {
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full overflow-hidden rounded-3xl border border-ocean-200/50 bg-white/60 shadow-2xl shadow-ocean-200/20 backdrop-blur-md dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl">
             <div className="grid lg:grid-cols-[2fr_3fr]">
-              {/* Left: brand + highlights */}
+              {/* Left: brand + steps */}
               <div className="relative flex flex-col overflow-hidden bg-gradient-to-br from-ocean-700 via-ocean-600 to-reef-600 p-8 dark:from-ocean-900 dark:via-ocean-800 dark:to-reef-900 sm:p-10 lg:p-12">
                 {/* Decorative orbs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -81,31 +88,34 @@ export default function LoginPage() {
 
                 <div className="relative">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-white backdrop-blur-md">
-                    Member Login
+                    Alumni Registration
                   </span>
                   <h1 className="mt-5 font-display text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl text-balance">
-                    Good to see you again.{' '}
+                    Join the association.{' '}
                     <span className="bg-gradient-to-r from-reef-200 to-ocean-200 bg-clip-text text-transparent">
-                      Your network is waiting.
+                      Claim your place in the network.
                     </span>
                   </h1>
                   <p className="mt-4 text-sm leading-relaxed text-ocean-50/80">
-                    One account connects you to every cohort since 2018 — your
-                    batchmates, the directory, and everything the association
-                    is planning next.
+                    One account connects you to every cohort since 2018 — and
+                    to the people who shared your classrooms, field drills,
+                    and first deployments.
                   </p>
                 </div>
 
                 <ul className="relative mt-8 space-y-5">
-                  {highlights.map((item) => (
-                    <li key={item.title} className="flex items-start gap-3.5">
+                  {steps.map((step, i) => (
+                    <li key={step.title} className="flex items-start gap-3.5">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-                        <item.icon className="h-5 w-5 text-reef-200" strokeWidth={2} />
+                        <step.icon className="h-5 w-5 text-reef-200" strokeWidth={2} />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-white">{item.title}</p>
+                        <p className="text-sm font-semibold text-white">
+                          <span className="mr-1.5 text-reef-200">{i + 1}.</span>
+                          {step.title}
+                        </p>
                         <p className="mt-0.5 text-xs leading-relaxed text-ocean-50/70">
-                          {item.desc}
+                          {step.desc}
                         </p>
                       </div>
                     </li>
@@ -113,16 +123,19 @@ export default function LoginPage() {
                 </ul>
 
                 <p className="relative mt-auto hidden pt-8 text-xs text-ocean-50/60 lg:block">
-                  Not registered yet?{' '}
-                  <Link href="/register" className="font-semibold text-reef-200 hover:text-white">
-                    Join the association →
+                  Already registered?{' '}
+                  <Link href="/sign-in" className="font-semibold text-reef-200 hover:text-white">
+                    Sign in →
                   </Link>
                 </p>
               </div>
 
-              {/* Right: form */}
-              <div className="relative p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-10 lg:border-l lg:border-t-0 lg:dark:border-l">
-                <LoginForm />
+              {/* Right: Clerk sign-up (email + password + name; email
+                  verification happens inside) */}
+              <div className="relative flex items-center justify-center p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-10 lg:border-l lg:border-t-0 lg:dark:border-l">
+                <div className="w-full max-w-sm">
+                  <ThemedSignUp />
+                </div>
               </div>
             </div>
           </div>

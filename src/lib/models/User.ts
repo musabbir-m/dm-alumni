@@ -23,7 +23,12 @@ const userSchema = new Schema(
     studentId: { type: String, required: true, unique: true, trim: true },
     /** Graduation year as a string, e.g. '2018' — key into src/data/batches.ts */
     batch: { type: String, required: true },
-    passwordHash: { type: String, required: true },
+    /**
+     * Clerk user id — credentials live in Clerk, this links the two systems.
+     * Sparse so pre-Clerk records without it still save; unique so two Mongo
+     * records can never claim the same Clerk user.
+     */
+    clerkId: { type: String, unique: true, sparse: true, index: true },
     role: { type: String, enum: ROLES, default: 'alumni' },
     verificationStatus: { type: String, enum: VERIFICATION_STATUSES, default: 'pending' },
     /** Batch year this moderator covers (role === 'moderator' only) */
@@ -37,11 +42,10 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-// Never leak the hash or internals through JSON (profile pages, API responses)
+// Never leak internals through JSON (profile pages, API responses)
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
     const clean = ret as Record<string, unknown>;
-    delete clean.passwordHash;
     delete clean.__v;
     return ret;
   },

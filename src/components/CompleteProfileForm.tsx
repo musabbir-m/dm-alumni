@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useActionState, useState, useRef, type ChangeEvent } from 'react';
+import Link from 'next/link';
 import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
   CreditCard, FileText, ChevronDown, CheckCircle2, Loader2, ArrowRight, X, Lock,
 } from 'lucide-react';
 import { batches } from '@/data/batches';
-import { register, type RegisterState } from '@/lib/actions/register';
+import { completeProfile } from '@/lib/actions/register';
+import type { CompleteProfileState } from '@/lib/actions/register';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
 
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
@@ -18,27 +20,26 @@ const formatSize = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 /**
- * useActionState has no reset API, so successful submissions are cleared by
- * remounting the form via a key bump on this wrapper.
+ * Step 2 of registration — the Clerk account already exists (step 1 was
+ * /sign-up), so email and name are locked here and only the alumni details
+ * are collected.
  */
-export default function RegisterForm() {
-  const [instance, setInstance] = useState(0);
-  return <RegisterFormFields key={instance} onReset={() => setInstance((i) => i + 1)} />;
-}
-
-function RegisterFormFields({ onReset }: { onReset: () => void }) {
-  const [state, formAction, isPending] = useActionState<RegisterState, FormData>(register, {
-    status: 'idle',
-  });
+export default function CompleteProfileForm({
+  clerkName,
+  clerkEmail,
+}: {
+  clerkName: string;
+  clerkEmail: string;
+}) {
+  const [state, formAction, isPending] = useActionState<CompleteProfileState, FormData>(
+    completeProfile,
+    { status: 'idle' }
+  );
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
     phone: '',
     studentId: '',
     batch: '',
-    password: '',
-    confirmPassword: '',
   });
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState('');
@@ -128,76 +129,74 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
           Welcome aboard, {firstName}!
         </h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-ocean-600/70 animate-fade-up dark:text-ocean-100/70" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
-          Your account was created and is awaiting verification. You can log in
-          now — a batch moderator will verify your details before your profile
-          appears in the directory.
+          Your profile is complete and awaiting verification. A batch
+          moderator will verify your details before your profile appears in
+          the directory.
         </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-          <a
-            href="/login"
-            className="text-sm font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
+        <div className="mt-6">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-ocean-300/40 transition-all hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
           >
-            Go to login →
-          </a>
-          <button
-            type="button"
-            onClick={onReset}
-            className="text-sm font-semibold text-ocean-500 transition-colors hover:text-ocean-600 dark:text-ocean-300/70 dark:hover:text-ocean-200"
-          >
-            Register another member
-          </button>
+            Go to your profile
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     );
   }
 
+  const lockedCls = `${inputCls()} read-only:cursor-not-allowed read-only:opacity-70`;
+
   return (
     <form action={formAction} className="space-y-5" noValidate>
       <div>
         <h2 className="font-display text-2xl font-bold tracking-tight text-ocean-900 dark:text-white">
-          Create your account
+          Complete your profile
         </h2>
         <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">
-          Fields marked optional can be added later from your profile.
+          Your account is ready — add your alumni details to finish joining
+          the network. Fields marked optional can be added later from your
+          profile.
         </p>
       </div>
 
-      {/* Name */}
-      <Field id="name" label="Full Name" error={serverErrors.name}>
-        <div className="group relative">
-          <User className={iconCls(!!serverErrors.name)} />
-          <input
-            id="name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            value={form.name}
-            onChange={update('name')}
-            placeholder="Your full name"
-            aria-invalid={!!serverErrors.name}
-            className={inputCls(!!serverErrors.name)}
-          />
-        </div>
-      </Field>
-
-      {/* Email + Phone */}
+      {/* Locked identity — from the Clerk account created in step 1 */}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="email" label="Email" error={serverErrors.email}>
+        <Field id="clerkEmail" label="Email">
           <div className="group relative">
-            <Mail className={iconCls(!!serverErrors.email)} />
+            <Mail className={iconCls()} />
             <input
-              id="email"
-              name="email"
+              id="clerkEmail"
               type="email"
-              autoComplete="email"
-              value={form.email}
-              onChange={update('email')}
-              placeholder="you@example.com"
-              aria-invalid={!!serverErrors.email}
-              className={inputCls(!!serverErrors.email)}
+              value={clerkEmail}
+              readOnly
+              autoComplete="off"
+              aria-readonly="true"
+              className={lockedCls}
             />
+            <Lock className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ocean-300 dark:text-ocean-500" />
           </div>
         </Field>
+        <Field id="clerkName" label="Full Name">
+          <div className="group relative">
+            <User className={iconCls()} />
+            <input
+              id="clerkName"
+              type="text"
+              value={clerkName || '—'}
+              readOnly
+              autoComplete="off"
+              aria-readonly="true"
+              className={lockedCls}
+            />
+            <Lock className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ocean-300 dark:text-ocean-500" />
+          </div>
+        </Field>
+      </div>
+
+      {/* Phone + Student ID */}
+      <div className="grid gap-5 sm:grid-cols-2">
         <Field id="phone" label="Phone" error={serverErrors.phone}>
           <div className="group relative">
             <Phone className={iconCls(!!serverErrors.phone)} />
@@ -214,10 +213,6 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
             />
           </div>
         </Field>
-      </div>
-
-      {/* Student ID + Batch */}
-      <div className="grid gap-5 sm:grid-cols-2">
         <Field id="studentId" label="Student ID" error={serverErrors.studentId}>
           <div className="group relative">
             <IdCard className={iconCls(!!serverErrors.studentId)} />
@@ -233,66 +228,32 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
             />
           </div>
         </Field>
-        <Field id="batch" label="Batch" error={serverErrors.batch}>
-          <div className="group relative">
-            <GraduationCap className={iconCls(!!serverErrors.batch)} />
-            <select
-              id="batch"
-              name="batch"
-              value={form.batch}
-              onChange={update('batch')}
-              aria-invalid={!!serverErrors.batch}
-              className={`${inputCls(!!serverErrors.batch)} appearance-none pr-10`}
-            >
-              <option value="" disabled>
-                Select your batch
-              </option>
-              {batches.map((b) => (
-                <option key={b.year} value={b.year}>
-                  {b.year} — {b.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 dark:text-ocean-300" />
-          </div>
-        </Field>
       </div>
 
-      {/* Password + Confirm */}
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="password" label="Password" error={serverErrors.password}>
-          <div className="group relative">
-            <Lock className={iconCls(!!serverErrors.password)} />
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={update('password')}
-              placeholder="At least 8 characters"
-              aria-invalid={!!serverErrors.password}
-              className={inputCls(!!serverErrors.password)}
-            />
-          </div>
-        </Field>
-        <Field id="confirmPassword" label="Confirm Password" error={serverErrors.confirmPassword}>
-          <div className="group relative">
-            <Lock className={iconCls(!!serverErrors.confirmPassword)} />
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={update('confirmPassword')}
-              placeholder="Re-enter your password"
-              aria-invalid={!!serverErrors.confirmPassword}
-              className={inputCls(!!serverErrors.confirmPassword)}
-            />
-          </div>
-        </Field>
-      </div>
+      {/* Batch */}
+      <Field id="batch" label="Batch" error={serverErrors.batch}>
+        <div className="group relative">
+          <GraduationCap className={iconCls(!!serverErrors.batch)} />
+          <select
+            id="batch"
+            name="batch"
+            value={form.batch}
+            onChange={update('batch')}
+            aria-invalid={!!serverErrors.batch}
+            className={`${inputCls(!!serverErrors.batch)} appearance-none pr-10`}
+          >
+            <option value="" disabled>
+              Select your batch
+            </option>
+            {batches.map((b) => (
+              <option key={b.year} value={b.year}>
+                {b.year} — {b.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 dark:text-ocean-300" />
+        </div>
+      </Field>
 
       {/* Photo upload */}
       <Field id="photo" label="Profile Photo" optional error={errors.photo ?? serverErrors.photo}>
@@ -454,11 +415,11 @@ function RegisterFormFields({ onReset }: { onReset: () => void }) {
         {isPending ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Creating your account…
+            Saving your profile…
           </>
         ) : (
           <>
-            <span className="relative z-10">Create account</span>
+            <span className="relative z-10">Complete registration</span>
             <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
           </>

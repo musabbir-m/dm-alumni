@@ -1,10 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { Waves, ArrowLeft } from 'lucide-react';
-import { auth } from '@/auth';
-import { connectDB } from '@/lib/db';
-import User from '@/lib/models/User';
+import { requireUser } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
 import ProfileEditForm from '@/components/ProfileEditForm';
 
@@ -14,12 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EditProfilePage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect('/login');
-
-  await connectDB();
-  const user = await User.findById(session.user.id).lean();
-  if (!user) redirect('/login');
+  const user = await requireUser();
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">

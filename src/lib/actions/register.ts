@@ -1,11 +1,15 @@
 'use server';
 
-import { hash } from 'bcryptjs';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
 import { batches } from '@/data/batches';
-import { destroyCloudinaryAsset, optimizedImageUrl } from '@/lib/cloudinary';
+import {
+  cloudinaryAssetFromUrl,
+  destroyCloudinaryAsset,
+  optimizedImageUrl,
+} from '@/lib/cloudinary';
 import type { CloudinaryAsset } from '@/lib/cloudinary';
 import {
   DOC_FOLDER,
@@ -15,30 +19,22 @@ import {
   saveUpload,
 } from '@/lib/uploads';
 
-export type RegisterState =
+/**
+ * Step 2 of registration: the Clerk account (email + password + name) already
+ * exists — this action creates/links the Mongo record with the alumni
+ * details. Identity never comes from the form.
+ */
+export type CompleteProfileState =
   | { status: 'idle' }
   | { status: 'error'; errors: Record<string, string>; message?: string }
   | { status: 'success'; name: string };
 
-const registerSchema = z
-  .object({
-    name: z.string().trim().min(1, 'Full name is required'),
-    email: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'Enter a valid email address'),
-    phone: z.string().trim().regex(/^\+?[\d\s()-]{10,17}$/, 'Enter a valid phone number'),
-    studentId: z.string().trim().min(1, 'Student ID is required'),
-    batch: z.string().refine((v) => batches.some((b) => b.year === v), 'Select your batch'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-    docType: z.enum(['certificate', 'card']),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
+const completeProfileSchema = z.object({
+  phone: z.string().trim().regex(/^\+?[\d\s()-]{10,17}$/, 'Enter a valid phone number'),
+  studentId: z.string().trim().min(1, 'Student ID is required'),
+  batch: z.string().refine((v) => batches.some((b) => b.year === v), 'Select your batch'),
+  docType: z.enum(['certificate', 'card']),
+});
 
 function zodFieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -49,18 +45,23 @@ function zodFieldErrors(error: z.ZodError): Record<string, string> {
   return out;
 }
 
-export async function register(
-  _prev: RegisterState,
+export async function completeProfile(
+  _prev: CompleteProfileState,
   formData: FormData
-): Promise<RegisterState> {
-  const parsed = registerSchema.safeParse({
-    name: formData.get('name') ?? '',
-    email: formData.get('email') ?? '',
+): Promise<CompleteProfileState> {
+  const { userId } = await auth();
+  if (!userId) {
+    return {
+      status: 'error',
+      errors: {},
+      message: 'Your session has expired. Please sign in again.',
+    };
+  }
+
+  const parsed = completeProfileSchema.safeParse({
     phone: formData.get('phone') ?? '',
     studentId: formData.get('studentId') ?? '',
     batch: formData.get('batch') ?? '',
-    password: formData.get('password') ?? '',
-    confirmPassword: formData.get('confirmPassword') ?? '',
     docType: formData.get('docType') ?? 'certificate',
   });
   if (!parsed.success) {
@@ -69,21 +70,55 @@ export async function register(
   const data = parsed.data;
 
   // Track successful uploads so a later failure can destroy them instead of
-  // leaving orphaned assets in the Cloudinary account.
+  // leaving orphaned assets in the Cloudinary account. `superseded` are the
+  // legacy assets a successful save replaces — destroyed after the save.
   const uploaded: CloudinaryAsset[] = [];
+  const superseded: CloudinaryAsset[] = [];
 
   try {
+    // Email + name come from Clerk; the email must be verified so the
+    // lazy-email-link in src/lib/auth.ts stays trustworthy.
+    const cu = await currentUser();
+    const primary = cu?.primaryEmailAddress;
+    if (!primary || primary.verification?.status !== 'verified') {
+      return {
+        status: 'error',
+        errors: {},
+        message:
+          'Verify your email before completing your profile — check your inbox for the code from the sign-up step, then try again.',
+      };
+    }
+    const email = primary.emailAddress.toLowerCase();
+    const name =
+      [cu?.firstName, cu?.lastName].filter(Boolean).join(' ') || email.split('@')[0];
+
     await connectDB();
 
-    const existing = await User.findOne({
-      $or: [{ email: data.email }, { studentId: data.studentId }],
-    }).lean();
-    if (existing) {
-      const errors: Record<string, string> = {};
-      if (existing.email === data.email) errors.email = 'An account with this email already exists';
-      if (existing.studentId === data.studentId)
-        errors.studentId = 'An account with this Student ID already exists';
-      return { status: 'error', errors };
+    if (await User.exists({ clerkId: userId })) {
+      return {
+        status: 'error',
+        errors: {},
+        message: 'Your profile is already complete — head to your profile instead.',
+      };
+    }
+
+    if (await User.exists({ studentId: data.studentId })) {
+      return {
+        status: 'error',
+        errors: { studentId: 'An account with this Student ID already exists' },
+      };
+    }
+
+    const existingEmail = await User.findOne({ email }).lean();
+    if (existingEmail?.clerkId) {
+      // Another Clerk account already claimed the record for this email —
+      // only reachable if the Clerk email changed after linking.
+      return {
+        status: 'error',
+        errors: {},
+        message:
+          'An account with this email already exists. Please contact the association for help.',
+      };
     }
 
     const photo = await saveUpload(formData.get('photo'), IMAGE_TYPES, PHOTO_FOLDER);
@@ -97,38 +132,72 @@ export async function register(
     }
     if (doc.asset) uploaded.push(doc.asset);
 
-    const passwordHash = await hash(data.password, 12);
-    await User.create({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      studentId: data.studentId,
-      batch: data.batch,
-      passwordHash,
-      // MongoDB stores only the delivered Cloudinary URLs.
-      photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : null,
-      docType: doc.asset ? data.docType : null,
-      doc: doc.asset ? doc.asset.secureUrl : null,
-      // role/verificationStatus default to 'alumni'/'pending' — a batch
-      // moderator flips the status after registration.
-    });
+    if (existingEmail) {
+      // Pre-Clerk record whose verified email matches — claim it and fill in
+      // the alumni details (this is how seeded/legacy accounts migrate).
+      // Legacy Cloudinary assets being replaced are destroyed only after the
+      // save succeeds (a failed save keeps them in place).
+      if (photo.asset && existingEmail.photo) {
+        const old = cloudinaryAssetFromUrl(existingEmail.photo);
+        if (old) superseded.push(old);
+      }
+      if (doc.asset && existingEmail.doc) {
+        const old = cloudinaryAssetFromUrl(existingEmail.doc);
+        if (old) superseded.push(old);
+      }
+      const saved = await User.findOneAndUpdate(
+        { _id: existingEmail._id, clerkId: null },
+        {
+          $set: {
+            clerkId: userId,
+            name,
+            phone: data.phone,
+            studentId: data.studentId,
+            batch: data.batch,
+            photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : existingEmail.photo,
+            docType: doc.asset ? data.docType : existingEmail.docType,
+            doc: doc.asset ? doc.asset.secureUrl : existingEmail.doc,
+          },
+        },
+        { new: true }
+      ).lean();
+      if (!saved) throw new Error('Legacy record was claimed by another account mid-flight');
+    } else {
+      await User.create({
+        clerkId: userId,
+        name,
+        email,
+        phone: data.phone,
+        studentId: data.studentId,
+        batch: data.batch,
+        // MongoDB stores only the delivered Cloudinary URLs.
+        photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : null,
+        docType: doc.asset ? data.docType : null,
+        doc: doc.asset ? doc.asset.secureUrl : null,
+        // role/verificationStatus default to 'alumni'/'pending' — a batch
+        // moderator flips the status after registration.
+      });
+    }
 
-    return { status: 'success', name: data.name };
+    // Legacy assets replaced above were superseded, not orphaned — drop them.
+    await Promise.all(superseded.map(destroyCloudinaryAsset));
+
+    return { status: 'success', name };
   } catch (err) {
     if (uploaded.length) await Promise.all(uploaded.map(destroyCloudinaryAsset));
 
-    // Duplicate-key race (unique indexes) despite the pre-check above
+    // Duplicate-key race (unique indexes) despite the pre-checks above
     if ((err as { code?: number })?.code === 11000) {
       return {
         status: 'error',
-        errors: { email: 'An account with this email or Student ID already exists' },
+        errors: { studentId: 'An account with this Student ID already exists' },
       };
     }
-    console.error('register action failed:', err);
+    console.error('completeProfile action failed:', err);
     return {
       status: 'error',
       errors: {},
-      message: 'Something went wrong while creating your account. Please try again.',
+      message: 'Something went wrong while saving your profile. Please try again.',
     };
   }
 }
