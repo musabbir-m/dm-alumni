@@ -13,7 +13,7 @@ export default function Batches() {
             Our Cohorts
           </span>
           <h2 className="mt-5 font-display text-3xl font-bold leading-tight tracking-tight text-ocean-900 dark:text-white sm:text-4xl lg:text-5xl text-balance">
-            Six batches,{' '}
+            Ten batches,{' '}
             <span className="text-gradient">one unbroken current</span>
           </h2>
           <p className="mt-4 text-base leading-relaxed text-ocean-600/70 dark:text-ocean-100/70">
@@ -32,7 +32,7 @@ export default function Batches() {
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img
                   src={batch.image}
-                  alt={`Batch of ${batch.year}`}
+                  alt={`DSM ${batch.batchNo} Batch`}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                   loading="lazy"
                 />
@@ -40,7 +40,7 @@ export default function Batches() {
                 <div className="absolute inset-0 bg-gradient-to-br from-ocean-500/0 to-reef-500/0 transition-opacity duration-500 group-hover:from-ocean-500/10 group-hover:to-reef-500/10" />
 
                 <span className="absolute left-4 top-4 rounded-lg bg-white/80 px-3 py-1 font-display text-sm font-bold text-ocean-800 backdrop-blur-md dark:bg-ocean-950/60 dark:text-white">
-                  {batch.year}
+                  {batch.batchNo} Batch
                 </span>
                 <span className="absolute right-4 top-4 rounded-lg bg-reef-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md dark:bg-reef-500/80">
                   {batch.label}
@@ -66,7 +66,7 @@ export default function Batches() {
                   </span>
                   <span className="inline-flex items-center gap-1.5 text-xs text-ocean-400 dark:text-ocean-300/50">
                     <Calendar className="h-3.5 w-3.5" />
-                    Class of {batch.year}
+                    Session {batch.session}
                   </span>
                 </div>
               </div>

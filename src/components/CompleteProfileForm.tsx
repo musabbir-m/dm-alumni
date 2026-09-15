@@ -6,7 +6,7 @@ import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
   CreditCard, FileText, ChevronDown, CheckCircle2, Loader2, ArrowRight, X, Lock,
 } from 'lucide-react';
-import { batches } from '@/data/batches';
+import { batches, batchName } from '@/data/batches';
 import { completeProfile } from '@/lib/actions/register';
 import type { CompleteProfileState } from '@/lib/actions/register';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
@@ -247,7 +247,7 @@ export default function CompleteProfileForm({
             </option>
             {batches.map((b) => (
               <option key={b.year} value={b.year}>
-                {b.year} — {b.label}
+                {batchName(b)}
               </option>
             ))}
           </select>

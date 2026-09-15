@@ -54,6 +54,7 @@ export default async function EditProfilePage() {
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full rounded-3xl border border-ocean-200/50 bg-white/60 p-8 shadow-2xl shadow-ocean-200/20 backdrop-blur-md dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl sm:p-10">
             <ProfileEditForm
+              docLocked={user.verificationStatus === 'verified'}
               initial={{
                 name: user.name,
                 email: user.email,

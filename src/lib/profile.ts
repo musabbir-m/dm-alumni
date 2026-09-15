@@ -58,6 +58,22 @@ export async function applyProfileUpdate(
       return { status: 'error', errors: {}, message: 'Account not found.' };
     }
 
+    // Verified accounts may no longer replace the document a moderator
+    // verified against — only the photo stays editable. Checked before any
+    // upload so a blocked attempt causes no Cloudinary churn. Absent/empty
+    // entries mean "keep current" (same semantics as saveUpload).
+    const docEntry = formData.get('document');
+    const hasNewDoc = docEntry instanceof File && docEntry.size > 0;
+    if (user.verificationStatus === 'verified' && hasNewDoc) {
+      return {
+        status: 'error',
+        errors: {
+          document:
+            'Your account is verified — the verification document can no longer be changed. Contact a moderator if it needs correcting.',
+        },
+      };
+    }
+
     const photo = await saveUpload(formData.get('photo'), IMAGE_TYPES, PHOTO_FOLDER);
     if (!photo.ok) return { status: 'error', errors: { photo: photo.error } };
     if (photo.asset) uploaded.push(photo.asset);
@@ -79,6 +95,12 @@ export async function applyProfileUpdate(
     if (doc.asset) {
       user.doc = doc.asset.secureUrl;
       user.docType = data.docType;
+    }
+    // A new document from a not-yet-verified account (e.g. fixing a
+    // rejection) re-enters the review queue; text/photo-only edits never
+    // touch the status.
+    if (doc.asset && user.verificationStatus !== 'verified') {
+      user.verificationStatus = 'pending';
     }
 
     await user.save();

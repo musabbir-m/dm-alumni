@@ -48,8 +48,8 @@ export default function About() {
                 emergencies, and rebuild communities in the wake of catastrophe.
               </p>
               <p>
-                What began as a single cohort in 2018 has grown into a
-                multi-generational network spanning six batches and hundreds of
+                What began as a single cohort in 2011 has grown into a
+                multi-generational network spanning ten batches and hundreds of
                 professionals working in humanitarian aid, government agencies,
                 research institutions, and grassroots organizations worldwide.
               </p>
@@ -69,14 +69,14 @@ export default function About() {
                 still rely on in the field.
               </p>
               <p className="mt-3 text-xs font-semibold text-ocean-500 dark:text-ocean-300/60">
-                — Founding member, Batch of 2018
+                — Founding member, 1st Batch (Session 2011-12)
               </p>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-6">
               {[
-                { value: '6', label: 'Cohorts since 2018' },
-                { value: '379', label: 'Alumni members' },
+                { value: '10', label: 'Cohorts since 2011' },
+                { value: '695', label: 'Alumni members' },
                 { value: '24', label: 'Countries served' },
               ].map((stat, i) => (
                 <div key={stat.label} className="group">

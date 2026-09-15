@@ -8,7 +8,7 @@ const events = [
     location: 'Coastal Convention Center, Hall A',
     time: '9:00 AM – 5:00 PM',
     tag: 'Flagship Event',
-    desc: 'A full-day gathering of all six cohorts — keynote talks, panel discussions, and batch reunions.',
+    desc: 'A full-day gathering of all ten cohorts — keynote talks, panel discussions, and batch reunions.',
     featured: true,
   },
   {
@@ -18,7 +18,7 @@ const events = [
     location: 'Virtual — Online',
     time: '6:00 PM – 8:00 PM',
     tag: 'Workshop',
-    desc: 'Hands-on training on rapid assessment techniques led by 2019 cohort field veterans.',
+    desc: 'Hands-on training on rapid assessment techniques led by 9th Batch field veterans.',
     featured: false,
   },
   {

@@ -21,7 +21,7 @@ const userSchema = new Schema(
     },
     phone: { type: String, required: true, trim: true },
     studentId: { type: String, required: true, unique: true, trim: true },
-    /** Graduation year as a string, e.g. '2018' — key into src/data/batches.ts */
+    /** Session start year as a string, e.g. '2018' = DSM 8th Batch (Session 2018-19) — key into src/data/batches.ts */
     batch: { type: String, required: true },
     /**
      * Clerk user id — credentials live in Clerk, this links the two systems.

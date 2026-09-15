@@ -6,7 +6,7 @@ import { LifeBuoy, Building2, GraduationCap, Microscope, TrendingUp } from 'luci
 const stats = [
   { icon: LifeBuoy, value: 1200, suffix: '+', label: 'Relief missions supported' },
   { icon: Building2, value: 48, suffix: '', label: 'Partner organizations' },
-  { icon: GraduationCap, value: 379, suffix: '', label: 'Alumni network members' },
+  { icon: GraduationCap, value: 695, suffix: '', label: 'Alumni network members' },
   { icon: Microscope, value: 65, suffix: '', label: 'Research publications' },
 ];
 

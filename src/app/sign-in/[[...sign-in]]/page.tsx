@@ -95,7 +95,7 @@ export default async function SignInPage() {
                     </span>
                   </h1>
                   <p className="mt-4 text-sm leading-relaxed text-ocean-50/80">
-                    One account connects you to every cohort since 2018 — your
+                    One account connects you to every cohort since 2011 — your
                     batchmates, the directory, and everything the association
                     is planning next.
                   </p>

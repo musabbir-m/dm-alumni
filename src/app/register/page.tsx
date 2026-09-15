@@ -109,7 +109,7 @@ export default async function RegisterPage() {
                   </h1>
                   <p className="mt-4 text-sm leading-relaxed text-ocean-50/80">
                     Your account is ready — add your alumni details to join
-                    every cohort since 2018 and the people who shared your
+                    every cohort since 2011 and the people who shared your
                     classrooms, field drills, and first deployments.
                   </p>
                 </div>

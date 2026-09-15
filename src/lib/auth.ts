@@ -55,4 +55,11 @@ export async function getSessionUser() {
   return findOrLinkUser(userId);
 }
 
+/** Page guard for admin-only pages (/admin) — non-admins land on the home page. */
+export async function requireAdmin() {
+  const user = await requireUser();
+  if ((user.role ?? 'alumni') !== 'admin') redirect('/');
+  return user;
+}
+
 export type SessionUser = Awaited<ReturnType<typeof getSessionUser>>;

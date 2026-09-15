@@ -62,7 +62,7 @@ export default function Footer() {
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-ocean-300/60">
               The Disaster Management Students&apos; Alumni Association — uniting
               graduates dedicated to resilience, response, and community across
-              six cohorts and counting.
+              ten cohorts and counting.
             </p>
             <div className="mt-6 flex items-center gap-3">
               {[

@@ -7,7 +7,7 @@ import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
   CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft,
 } from 'lucide-react';
-import { batches } from '@/data/batches';
+import { batches, batchName } from '@/data/batches';
 import { updateProfile } from '@/lib/actions/profile';
 import type { ProfileState } from '@/lib/profile';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
@@ -31,7 +31,14 @@ export interface ProfileEditInitial {
 const formatSize = (bytes: number) =>
   bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
-export default function ProfileEditForm({ initial }: { initial: ProfileEditInitial }) {
+export default function ProfileEditForm({
+  initial,
+  docLocked = false,
+}: {
+  initial: ProfileEditInitial;
+  /** verificationStatus === 'verified' — document (and its type) is immutable */
+  docLocked?: boolean;
+}) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ProfileState, FormData>(updateProfile, {
     status: 'idle',
@@ -146,7 +153,9 @@ export default function ProfileEditForm({ initial }: { initial: ProfileEditIniti
             Edit profile
           </h2>
           <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">
-            Your email and Student ID identify you across the network and can&apos;t be changed.
+            {docLocked
+              ? 'Your email and Student ID can’t be changed, and your verification document is locked because your account is verified.'
+              : 'Your email and Student ID identify you across the network and can’t be changed.'}
           </p>
         </div>
         <Link
@@ -239,7 +248,7 @@ export default function ProfileEditForm({ initial }: { initial: ProfileEditIniti
             >
               {batches.map((b) => (
                 <option key={b.year} value={b.year}>
-                  {b.year} — {b.label}
+                  {batchName(b)}
                 </option>
               ))}
             </select>
@@ -306,111 +315,148 @@ export default function ProfileEditForm({ initial }: { initial: ProfileEditIniti
       </Field>
 
       {/* Verification document */}
-      <Field id="document" label="Verification Document" optional error={errors.doc ?? serverErrors.doc}>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {(
-              [
-                { key: 'certificate', label: 'Graduation Certificate', icon: Award },
-                { key: 'card', label: 'Registration Card', icon: CreditCard },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                aria-pressed={docType === opt.key}
-                onClick={() => setDocType(opt.key)}
-                className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-sm font-medium transition-all ${
-                  docType === opt.key
-                    ? 'border-reef-500 bg-reef-50/70 text-ocean-900 ring-2 ring-reef-400/25 dark:border-reef-500/60 dark:bg-reef-500/10 dark:text-white'
-                    : 'border-ocean-200 bg-white/50 text-ocean-700 hover:border-ocean-300 dark:border-ocean-800 dark:bg-ocean-950/40 dark:text-ocean-200 dark:hover:border-ocean-700'
-                }`}
+      <Field
+        id="document"
+        label="Verification Document"
+        optional
+        error={errors.doc ?? serverErrors.doc ?? serverErrors.document}
+      >
+        {docLocked ? (
+          <div className="space-y-3">
+            {/* No file input when locked — the hidden docType keeps zod happy */}
+            <input type="hidden" name="docType" value={docType} />
+            <div className="flex items-center gap-3 rounded-xl border border-ocean-200 bg-white/40 px-4 py-3.5 dark:border-ocean-800 dark:bg-ocean-950/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ocean-100/70 text-ocean-600 dark:bg-ocean-800/60 dark:text-ocean-200">
+                <FileText className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ocean-800 dark:text-ocean-100">
+                  {docType === 'certificate' ? 'Graduation certificate' : 'Registration card'}
+                </span>
+                <span className="block text-xs text-ocean-400 dark:text-ocean-300/60">
+                  Locked because your account is verified — your profile photo stays editable.
+                </span>
+              </span>
+              <Lock className="h-4 w-4 shrink-0 text-ocean-300 dark:text-ocean-500" />
+            </div>
+            {initial.doc && (
+              <a
+                href={initial.doc}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
               >
-                <opt.icon
-                  className={`h-5 w-5 shrink-0 ${
-                    docType === opt.key
-                      ? 'text-reef-600 dark:text-reef-300'
-                      : 'text-ocean-400 dark:text-ocean-300/60'
-                  }`}
-                  strokeWidth={2}
-                />
-                {opt.label}
-              </button>
-            ))}
+                <FileText className="h-3.5 w-3.5" />
+                View current document
+              </a>
+            )}
           </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { key: 'certificate', label: 'Graduation Certificate', icon: Award },
+                  { key: 'card', label: 'Registration Card', icon: CreditCard },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  aria-pressed={docType === opt.key}
+                  onClick={() => setDocType(opt.key)}
+                  className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-sm font-medium transition-all ${
+                    docType === opt.key
+                      ? 'border-reef-500 bg-reef-50/70 text-ocean-900 ring-2 ring-reef-400/25 dark:border-reef-500/60 dark:bg-reef-500/10 dark:text-white'
+                      : 'border-ocean-200 bg-white/50 text-ocean-700 hover:border-ocean-300 dark:border-ocean-800 dark:bg-ocean-950/40 dark:text-ocean-200 dark:hover:border-ocean-700'
+                  }`}
+                >
+                  <opt.icon
+                    className={`h-5 w-5 shrink-0 ${
+                      docType === opt.key
+                        ? 'text-reef-600 dark:text-reef-300'
+                        : 'text-ocean-400 dark:text-ocean-300/60'
+                    }`}
+                    strokeWidth={2}
+                  />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
 
-          <input type="hidden" name="docType" value={docType} />
+            <input type="hidden" name="docType" value={docType} />
 
-          <label
-            className={`group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3.5 transition-all ${
-              docFile
-                ? 'border-reef-400/70 bg-reef-50/50 dark:border-reef-500/50 dark:bg-reef-500/10'
-                : 'border-ocean-200 bg-white/40 hover:border-ocean-300 hover:bg-white/70 dark:border-ocean-800 dark:bg-ocean-950/40 dark:hover:border-ocean-700'
-            }`}
-          >
-            <input
-              id="document"
-              name="document"
-              type="file"
-              accept="image/*,.pdf"
-              onChange={handleDoc}
-              ref={docInputRef}
-              className="sr-only"
-            />
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ocean-100/70 text-ocean-600 dark:bg-ocean-800/60 dark:text-ocean-200">
-              {docFile ? <FileText className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-ocean-800 dark:text-ocean-100">
-                {docFile
-                  ? docFile.name
-                  : initial.doc
-                    ? 'Upload a replacement document'
-                    : docType === 'certificate'
-                      ? 'Upload graduation certificate'
-                      : 'Upload registration card'}
+            <label
+              className={`group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3.5 transition-all ${
+                docFile
+                  ? 'border-reef-400/70 bg-reef-50/50 dark:border-reef-500/50 dark:bg-reef-500/10'
+                  : 'border-ocean-200 bg-white/40 hover:border-ocean-300 hover:bg-white/70 dark:border-ocean-800 dark:bg-ocean-950/40 dark:hover:border-ocean-700'
+              }`}
+            >
+              <input
+                id="document"
+                name="document"
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleDoc}
+                ref={docInputRef}
+                className="sr-only"
+              />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ocean-100/70 text-ocean-600 dark:bg-ocean-800/60 dark:text-ocean-200">
+                {docFile ? <FileText className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
               </span>
-              <span className="block text-xs text-ocean-400 dark:text-ocean-300/60">
-                {docFile
-                  ? `${formatSize(docFile.size)} · click to replace`
-                  : initial.doc
-                    ? 'Current document stays until you upload a new one · image or PDF'
-                    : `Image or PDF, up to ${MAX_FILE_MB} MB`}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ocean-800 dark:text-ocean-100">
+                  {docFile
+                    ? docFile.name
+                    : initial.doc
+                      ? 'Upload a replacement document'
+                      : docType === 'certificate'
+                        ? 'Upload graduation certificate'
+                        : 'Upload registration card'}
+                </span>
+                <span className="block text-xs text-ocean-400 dark:text-ocean-300/60">
+                  {docFile
+                    ? `${formatSize(docFile.size)} · click to replace`
+                    : initial.doc
+                      ? 'Current document stays until you upload a new one · image or PDF'
+                      : `Image or PDF, up to ${MAX_FILE_MB} MB`}
+                </span>
               </span>
-            </span>
-            {docFile && (
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label="Discard new document"
-                onClick={(e) => {
-                  e.preventDefault();
-                  removeDocSelection();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+              {docFile && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Discard new document"
+                  onClick={(e) => {
                     e.preventDefault();
                     removeDocSelection();
-                  }
-                }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ocean-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-ocean-300 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      removeDocSelection();
+                    }
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ocean-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-ocean-300 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                >
+                  <X className="h-4 w-4" />
+                </span>
+              )}
+            </label>
+            {initial.doc && !docFile && (
+              <a
+                href={initial.doc}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
               >
-                <X className="h-4 w-4" />
-              </span>
+                <FileText className="h-3.5 w-3.5" />
+                View current document
+              </a>
             )}
-          </label>
-          {initial.doc && !docFile && (
-            <a
-              href={initial.doc}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              View current document
-            </a>
-          )}
-        </div>
+          </div>
+        )}
       </Field>
 
       {state.status === 'error' && state.message && (

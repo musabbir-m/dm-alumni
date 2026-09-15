@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Mail, User, GraduationCap, Send, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
-import { batches } from '@/data/batches';
+import { batches, batchName } from '@/data/batches';
 
 type Status = 'idle' | 'loading' | 'success';
 
@@ -159,7 +159,7 @@ export default function Connect() {
                         </option>
                         {batches.map((b) => (
                           <option key={b.year} value={b.year}>
-                            {b.year} — {b.label}
+                            {batchName(b)}
                           </option>
                         ))}
                       </select>

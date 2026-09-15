@@ -120,8 +120,8 @@ export default function Hero() {
             style={{ animationDelay: '0.4s', animationFillMode: 'both' }}
           >
             {[
-              { value: '6', label: 'Cohorts' },
-              { value: '379', label: 'Alumni' },
+              { value: '10', label: 'Cohorts' },
+              { value: '695', label: 'Alumni' },
               { value: '24', label: 'Countries' },
             ].map((stat, i) => (
               <div key={stat.label} className="group">
@@ -152,7 +152,7 @@ export default function Hero() {
                 >
                   <img
                     src={batch.image}
-                    alt={`Batch of ${batch.year}`}
+                    alt={`DSM ${batch.batchNo} Batch`}
                     className="h-full w-full object-cover"
                     loading={i === 0 ? 'eager' : 'lazy'}
                   />
@@ -179,10 +179,10 @@ export default function Hero() {
                   <div className="flex items-end justify-between gap-4">
                     <div>
                       <p className="font-display text-4xl font-extrabold leading-none text-white">
-                        {batches[active].year}
+                        {batches[active].batchNo} Batch
                       </p>
                       <p className="mt-1.5 text-sm font-semibold text-reef-300">
-                        Batch of {batches[active].label}
+                        Batch of {batches[active].label} · Session {batches[active].session}
                       </p>
                       <p className="mt-0.5 text-xs italic text-ocean-200/90 dark:text-ocean-200/80">
                         &ldquo;{batches[active].motto}&rdquo;
