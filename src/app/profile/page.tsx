@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import type { ComponentType } from 'react';
 import Link from 'next/link';
 import {
   Waves, ArrowLeft, ArrowRight, Mail, Phone, IdCard, GraduationCap,
-  Clock, XCircle, ShieldCheck, BadgeCheck, FileText, Pencil, ImagePlus, Lock,
+  Clock, XCircle, ShieldCheck, BadgeCheck, FileText, Pencil, ImagePlus, Lock, Briefcase,
 } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { batches, batchName } from '@/data/batches';
+import { isLinkedInUrl } from '@/lib/directory';
+import { LinkedinIcon } from '@/components/BrandIcons';
 import ThemeToggle from '@/components/ThemeToggle';
 import LogoutButton from '@/components/LogoutButton';
 import { StatusBadge, ROLE_LABELS } from '@/components/UserBadges';
@@ -30,7 +33,8 @@ export default async function ProfilePage() {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
-  const details = [
+  // Optional directory fields render only when filled in
+  const details: { icon: ComponentType<{ className?: string }>; label: string; value: string; href?: string }[] = [
     { icon: Mail, label: 'Email', value: user.email },
     { icon: Phone, label: 'Phone', value: user.phone },
     { icon: IdCard, label: 'Student ID', value: user.studentId },
@@ -39,6 +43,12 @@ export default async function ProfilePage() {
       label: 'Batch',
       value: batchInfo ? batchName(batchInfo) : user.batch,
     },
+    ...(user.profession
+      ? [{ icon: Briefcase as ComponentType<{ className?: string }>, label: 'Profession', value: user.profession }]
+      : []),
+    ...(isLinkedInUrl(user.linkedinUrl)
+      ? [{ icon: LinkedinIcon, label: 'LinkedIn', value: 'View profile', href: user.linkedinUrl }]
+      : []),
   ];
 
   return (
@@ -136,8 +146,8 @@ export default async function ProfilePage() {
                   <Clock className="mt-0.5 h-4 w-4 shrink-0" />
                   <p>
                     A moderator from your batch will review your details soon.
-                    Until then, some areas of the network (like the alumni
-                    directory) stay hidden.
+                    Your profile appears in the batch directory once you are
+                    verified.
                   </p>
                 </div>
               )}
@@ -169,7 +179,18 @@ export default async function ProfilePage() {
                         {item.label}
                       </dt>
                       <dd className="truncate text-sm font-semibold text-ocean-900 dark:text-white">
-                        {item.value}
+                        {item.href ? (
+                          <a
+                            href={item.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
+                          >
+                            {item.value}
+                          </a>
+                        ) : (
+                          item.value
+                        )}
                       </dd>
                     </div>
                   </div>

@@ -23,6 +23,10 @@ const userSchema = new Schema(
     studentId: { type: String, required: true, unique: true, trim: true },
     /** Session start year as a string, e.g. '2018' = DSM 8th Batch (Session 2018-19) — key into src/data/batches.ts */
     batch: { type: String, required: true },
+    /** Current profession/role, shown in the batch directory */
+    profession: { type: String, trim: true, maxlength: 100, default: null },
+    /** Full LinkedIn profile URL, linked from the directory card */
+    linkedinUrl: { type: String, trim: true, default: null },
     /**
      * Clerk user id — credentials live in Clerk, this links the two systems.
      * Sparse so pre-Clerk records without it still save; unique so two Mongo

@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
-  CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft,
+  CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft, Briefcase,
 } from 'lucide-react';
+import { LinkedinIcon } from '@/components/BrandIcons';
 import { batches, batchName } from '@/data/batches';
 import { updateProfile } from '@/lib/actions/profile';
 import type { ProfileState } from '@/lib/profile';
@@ -23,6 +24,8 @@ export interface ProfileEditInitial {
   phone: string;
   studentId: string;
   batch: string;
+  profession: string; // '' if none
+  linkedinUrl: string; // '' if none
   docType: DocType;
   photo: string; // current Cloudinary URL ('' if none)
   doc: string; // current Cloudinary URL ('' if none)
@@ -48,6 +51,8 @@ export default function ProfileEditForm({
     name: initial.name,
     phone: initial.phone,
     batch: initial.batch,
+    profession: initial.profession,
+    linkedinUrl: initial.linkedinUrl,
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [objectUrl, setObjectUrl] = useState('');
@@ -253,6 +258,41 @@ export default function ProfileEditForm({
               ))}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 dark:text-ocean-300" />
+          </div>
+        </Field>
+      </div>
+
+      {/* Profession + LinkedIn — optional, shown on the batch directory card */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field id="profession" label="Profession" optional error={serverErrors.profession}>
+          <div className="group relative">
+            <Briefcase className={iconCls(!!serverErrors.profession)} />
+            <input
+              id="profession"
+              name="profession"
+              type="text"
+              value={form.profession}
+              onChange={update('profession')}
+              placeholder="e.g. Program Officer at BRAC"
+              aria-invalid={!!serverErrors.profession}
+              className={inputCls(!!serverErrors.profession)}
+            />
+          </div>
+        </Field>
+        <Field id="linkedinUrl" label="LinkedIn Profile URL" optional error={serverErrors.linkedinUrl}>
+          <div className="group relative">
+            <LinkedinIcon className={iconCls(!!serverErrors.linkedinUrl)} />
+            <input
+              id="linkedinUrl"
+              name="linkedinUrl"
+              type="url"
+              inputMode="url"
+              value={form.linkedinUrl}
+              onChange={update('linkedinUrl')}
+              placeholder="https://www.linkedin.com/in/…"
+              aria-invalid={!!serverErrors.linkedinUrl}
+              className={inputCls(!!serverErrors.linkedinUrl)}
+            />
           </div>
         </Field>
       </div>

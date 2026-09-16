@@ -1,6 +1,7 @@
 'use server';
 
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { revalidatePath } from 'next/cache';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
 import { applyProfileUpdate } from '@/lib/profile';
@@ -35,6 +36,9 @@ export async function updateProfile(
   // copy of the name) stays fresh. Mongo remains the source of truth — a
   // failed sync is logged and ignored.
   if (result.status === 'success') {
+    // Fresh homepage batch counts — a verified member changing batch (or
+    // their directory card details) shifts what / renders.
+    revalidatePath('/');
     const [first, ...rest] = (formData.get('name') ?? '').toString().trim().split(/\s+/);
     try {
       await (await clerkClient()).users.updateUser(userId, {

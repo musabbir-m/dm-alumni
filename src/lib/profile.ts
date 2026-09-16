@@ -4,6 +4,7 @@ import User from '@/lib/models/User';
 import { batches } from '@/data/batches';
 import { destroyCloudinaryAsset, cloudinaryAssetFromUrl, optimizedImageUrl } from '@/lib/cloudinary';
 import { DOC_FOLDER, DOC_TYPES, IMAGE_TYPES, PHOTO_FOLDER, saveUpload } from '@/lib/uploads';
+import { linkedinUrlSchema, professionSchema } from '@/lib/profile-fields';
 import type { CloudinaryAsset } from '@/lib/cloudinary';
 
 export type ProfileState =
@@ -15,6 +16,8 @@ const updateSchema = z.object({
   name: z.string().trim().min(1, 'Full name is required'),
   phone: z.string().trim().regex(/^\+?[\d\s()-]{10,17}$/, 'Enter a valid phone number'),
   batch: z.string().refine((v) => batches.some((b) => b.year === v), 'Select your batch'),
+  profession: professionSchema,
+  linkedinUrl: linkedinUrlSchema,
   docType: z.enum(['certificate', 'card']),
 });
 
@@ -43,6 +46,8 @@ export async function applyProfileUpdate(
     name: formData.get('name') ?? '',
     phone: formData.get('phone') ?? '',
     batch: formData.get('batch') ?? '',
+    profession: formData.get('profession') ?? '',
+    linkedinUrl: formData.get('linkedinUrl') ?? '',
     docType: formData.get('docType') ?? 'certificate',
   });
   if (!parsed.success) {
@@ -91,6 +96,9 @@ export async function applyProfileUpdate(
     user.name = data.name;
     user.phone = data.phone;
     user.batch = data.batch;
+    // Optional directory fields — empty submissions clear the stored value
+    user.profession = data.profession;
+    user.linkedinUrl = data.linkedinUrl;
     if (photo.asset) user.photo = optimizedImageUrl(photo.asset.secureUrl);
     if (doc.asset) {
       user.doc = doc.asset.secureUrl;

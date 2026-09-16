@@ -18,6 +18,7 @@ import {
   PHOTO_FOLDER,
   saveUpload,
 } from '@/lib/uploads';
+import { linkedinUrlSchema, professionSchema } from '@/lib/profile-fields';
 
 /**
  * Step 2 of registration: the Clerk account (email + password + name) already
@@ -33,6 +34,8 @@ const completeProfileSchema = z.object({
   phone: z.string().trim().regex(/^\+?[\d\s()-]{10,17}$/, 'Enter a valid phone number'),
   studentId: z.string().trim().min(1, 'Student ID is required'),
   batch: z.string().refine((v) => batches.some((b) => b.year === v), 'Select your batch'),
+  profession: professionSchema,
+  linkedinUrl: linkedinUrlSchema,
   docType: z.enum(['certificate', 'card']),
 });
 
@@ -62,6 +65,8 @@ export async function completeProfile(
     phone: formData.get('phone') ?? '',
     studentId: formData.get('studentId') ?? '',
     batch: formData.get('batch') ?? '',
+    profession: formData.get('profession') ?? '',
+    linkedinUrl: formData.get('linkedinUrl') ?? '',
     docType: formData.get('docType') ?? 'certificate',
   });
   if (!parsed.success) {
@@ -154,6 +159,8 @@ export async function completeProfile(
             phone: data.phone,
             studentId: data.studentId,
             batch: data.batch,
+            profession: data.profession,
+            linkedinUrl: data.linkedinUrl,
             photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : existingEmail.photo,
             docType: doc.asset ? data.docType : existingEmail.docType,
             doc: doc.asset ? doc.asset.secureUrl : existingEmail.doc,
@@ -170,6 +177,8 @@ export async function completeProfile(
         phone: data.phone,
         studentId: data.studentId,
         batch: data.batch,
+        profession: data.profession,
+        linkedinUrl: data.linkedinUrl,
         // MongoDB stores only the delivered Cloudinary URLs.
         photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : null,
         docType: doc.asset ? data.docType : null,

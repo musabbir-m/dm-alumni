@@ -53,6 +53,10 @@ export async function updateUserVerificationAction(
   if ('status' in resolved) return resolved;
 
   const result = await setUserVerification(resolved.actorId, targetId, status);
-  if (result.status === 'ok') revalidatePath('/admin');
+  // '/' too — the homepage Batches counts track verified members per batch
+  if (result.status === 'ok') {
+    revalidatePath('/admin');
+    revalidatePath('/');
+  }
   return result;
 }

@@ -1,7 +1,15 @@
+import Link from 'next/link';
 import { Users, Calendar, ArrowUpRight } from 'lucide-react';
 import { batches } from '@/data/batches';
 
-export default function Batches() {
+/**
+ * Cohort cards for the homepage. Alumni counts come from the database
+ * (verified members per batch, passed in by the page); `counts === null`
+ * means the query failed and the static estimates in src/data/batches.ts
+ * stand in. Each card links to that batch's directory page (/alumni/[year]) —
+ * the destination enforces sign-in.
+ */
+export default function Batches({ counts }: { counts: Record<string, number> | null }) {
   return (
     <section id="batches" className="relative overflow-hidden bg-gradient-to-b from-ocean-50/40 via-white to-white py-24 dark:from-ocean-950 dark:via-ocean-900 dark:to-ocean-900 sm:py-32">
       <div className="absolute inset-0 bg-dots opacity-30 dark:hidden" />
@@ -23,55 +31,62 @@ export default function Batches() {
         </div>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {batches.map((batch, i) => (
-            <article
-              key={batch.year}
-              className="group relative overflow-hidden rounded-3xl border border-ocean-200/60 bg-white shadow-lg shadow-ocean-200/20 transition-all duration-300 hover:shadow-2xl hover:shadow-reef-200/30 hover:-translate-y-2 reveal dark:border-ocean-800/60 dark:bg-ocean-950/60 dark:shadow-ocean-950/30 dark:hover:shadow-ocean-950/50"
-              style={{ transitionDelay: `${i * 60}ms` }}
-            >
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <img
-                  src={batch.image}
-                  alt={`DSM ${batch.batchNo} Batch`}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-ocean-950/85 via-ocean-950/20 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-br from-ocean-500/0 to-reef-500/0 transition-opacity duration-500 group-hover:from-ocean-500/10 group-hover:to-reef-500/10" />
+          {batches.map((batch, i) => {
+            // DB-backed verified count; a null `counts` (query failed) falls
+            // back to the static estimate — a successful query showing 0
+            // means the batch genuinely has no verified members yet.
+            const count = counts ? (counts[batch.year] ?? 0) : batch.count;
+            return (
+              <Link
+                key={batch.year}
+                href={`/alumni/${batch.year}`}
+                className="group block reveal relative overflow-hidden rounded-3xl border border-ocean-200/60 bg-white shadow-lg shadow-ocean-200/20 transition-all duration-300 hover:shadow-2xl hover:shadow-reef-200/30 hover:-translate-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-reef-500 focus-visible:ring-offset-2 dark:border-ocean-800/60 dark:bg-ocean-950/60 dark:shadow-ocean-950/30 dark:hover:shadow-ocean-950/50 dark:focus-visible:ring-offset-ocean-900"
+                style={{ transitionDelay: `${i * 60}ms` }}
+              >
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={batch.image}
+                    alt={`DSM ${batch.batchNo} Batch`}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ocean-950/85 via-ocean-950/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-ocean-500/0 to-reef-500/0 transition-opacity duration-500 group-hover:from-ocean-500/10 group-hover:to-reef-500/10" />
 
-                <span className="absolute left-4 top-4 rounded-lg bg-white/80 px-3 py-1 font-display text-sm font-bold text-ocean-800 backdrop-blur-md dark:bg-ocean-950/60 dark:text-white">
-                  {batch.batchNo} Batch
-                </span>
-                <span className="absolute right-4 top-4 rounded-lg bg-reef-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md dark:bg-reef-500/80">
-                  {batch.label}
-                </span>
-
-                {/* Hover arrow */}
-                <div className="absolute bottom-4 right-4 flex h-9 w-9 translate-y-12 items-center justify-center rounded-full bg-white/90 text-ocean-700 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 dark:bg-ocean-950/60 dark:text-ocean-100">
-                  <ArrowUpRight className="h-4 w-4" />
-                </div>
-              </div>
-
-              <div className="relative p-6">
-                {/* Top accent */}
-                <div className="absolute left-0 top-0 h-0.5 w-0 bg-gradient-to-r from-ocean-500 to-reef-500 transition-all duration-500 group-hover:w-full" />
-
-                <p className="font-display text-lg font-semibold italic text-reef-600 dark:text-reef-200">
-                  &ldquo;{batch.motto}&rdquo;
-                </p>
-                <div className="mt-4 flex items-center justify-between border-t border-ocean-100 pt-4 dark:border-ocean-800/60">
-                  <span className="inline-flex items-center gap-1.5 text-sm text-ocean-600 dark:text-ocean-200/70">
-                    <Users className="h-4 w-4 text-reef-500 dark:text-reef-400" />
-                    {batch.count} alumni
+                  <span className="absolute left-4 top-4 rounded-lg bg-white/80 px-3 py-1 font-display text-sm font-bold text-ocean-800 backdrop-blur-md dark:bg-ocean-950/60 dark:text-white">
+                    {batch.batchNo} Batch
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs text-ocean-400 dark:text-ocean-300/50">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Session {batch.session}
+                  <span className="absolute right-4 top-4 rounded-lg bg-reef-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md dark:bg-reef-500/80">
+                    {batch.label}
                   </span>
+
+                  {/* Hover arrow */}
+                  <div className="absolute bottom-4 right-4 flex h-9 w-9 translate-y-12 items-center justify-center rounded-full bg-white/90 text-ocean-700 opacity-0 backdrop-blur-md transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 dark:bg-ocean-950/60 dark:text-ocean-100">
+                    <ArrowUpRight className="h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+
+                <div className="relative p-6">
+                  {/* Top accent */}
+                  <div className="absolute left-0 top-0 h-0.5 w-0 bg-gradient-to-r from-ocean-500 to-reef-500 transition-all duration-500 group-hover:w-full" />
+
+                  <p className="font-display text-lg font-semibold italic text-reef-600 dark:text-reef-200">
+                    &ldquo;{batch.motto}&rdquo;
+                  </p>
+                  <div className="mt-4 flex items-center justify-between border-t border-ocean-100 pt-4 dark:border-ocean-800/60">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-ocean-600 dark:text-ocean-200/70">
+                      <Users className="h-4 w-4 text-reef-500 dark:text-reef-400" />
+                      {count} alumni
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-ocean-400 dark:text-ocean-300/50">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Session {batch.session}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

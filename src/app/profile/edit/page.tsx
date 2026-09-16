@@ -61,6 +61,8 @@ export default async function EditProfilePage() {
                 phone: user.phone,
                 studentId: user.studentId,
                 batch: user.batch,
+                profession: user.profession ?? '',
+                linkedinUrl: user.linkedinUrl ?? '',
                 docType: user.docType ?? 'certificate',
                 photo: user.photo ?? '',
                 doc: user.doc ?? '',
