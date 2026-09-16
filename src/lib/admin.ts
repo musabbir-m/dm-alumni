@@ -5,10 +5,12 @@ import type { UserDocument } from '@/lib/models/User';
 
 /**
  * Admin member-management core — role changes and verification decisions.
- * Lives outside the 'use server' boundary (like applyProfileUpdate) so tsx
- * scripts can exercise the real guards without a request context. The
- * 'use server' wrappers in src/lib/actions/admin.ts resolve the Clerk
- * session to its Mongo actor and delegate here.
+ * Role changes are admin-only; verification is decided by admins (any
+ * member) or by the moderator of the target's batch. Lives outside the
+ * 'use server' boundary (like applyProfileUpdate) so tsx scripts can
+ * exercise the real guards without a request context. The 'use server'
+ * wrappers in src/lib/actions/admin.ts resolve the Clerk session to its
+ * Mongo actor and delegate here.
  */
 
 /** Result shape for admin row actions — no form fields, just a message. */
@@ -24,18 +26,18 @@ export type ManagedStatus = (typeof MANAGED_STATUSES)[number];
 type UserDoc = HydratedDocument<UserDocument>;
 
 /**
- * Guard chain shared by every admin mutation: the actor must be an admin,
- * the target must exist, and admins never modify themselves or other
- * admins (no self-lockout, no editing trusted records).
+ * Loads the actor/target pair and enforces the checks shared by every
+ * mutation: both records must exist, and nobody modifies themselves or
+ * another admin (no self-lockout, no editing trusted records). Whether the
+ * actor may act at all is decided by each mutation below.
  */
-async function loadActorAndTarget(
+async function loadPair(
   actorId: string,
   targetId: string
 ): Promise<AdminResult | { actor: UserDoc; target: UserDoc }> {
   await connectDB();
   const actor = await User.findById(actorId);
   if (!actor) return { status: 'error', message: 'Your account was not found.' };
-  if (actor.role !== 'admin') return { status: 'error', message: 'Only admins can manage members.' };
 
   const target = await User.findById(targetId);
   if (!target) return { status: 'error', message: 'That member no longer exists.' };
@@ -49,7 +51,8 @@ async function loadActorAndTarget(
   return { actor, target };
 }
 
-/** Promote to moderator (stamps the target's own batch) or demote to alumni. */
+/** Promote to moderator (stamps the target's own batch) or demote to alumni.
+ * Admin-only — moderators never touch roles. */
 export async function setUserRole(
   actorId: string,
   targetId: string,
@@ -59,9 +62,12 @@ export async function setUserRole(
   if (!MANAGED_ROLES.includes(role)) return { status: 'error', message: 'Invalid role.' };
 
   try {
-    const loaded = await loadActorAndTarget(actorId, targetId);
+    const loaded = await loadPair(actorId, targetId);
     if ('status' in loaded) return loaded;
-    const { target } = loaded;
+    const { actor, target } = loaded;
+    if (actor.role !== 'admin') {
+      return { status: 'error', message: 'Only admins can manage member roles.' };
+    }
 
     // Idempotent — a double-click or stale row re-sends the same request
     if (target.role === role) return { status: 'ok' };
@@ -76,7 +82,8 @@ export async function setUserRole(
   }
 }
 
-/** Approve (verified) or reject a member's verification. Never resets to
+/** Approve (verified) or reject a member's verification — admins decide any
+ * member, a moderator only members of their moderated batch. Never resets to
  * pending — members re-enter review themselves by uploading a corrected
  * document (see applyProfileUpdate). */
 export async function setUserVerification(
@@ -87,9 +94,21 @@ export async function setUserVerification(
   if (!MANAGED_STATUSES.includes(status)) return { status: 'error', message: 'Invalid status.' };
 
   try {
-    const loaded = await loadActorAndTarget(actorId, targetId);
+    const loaded = await loadPair(actorId, targetId);
     if ('status' in loaded) return loaded;
-    const { target } = loaded;
+    const { actor, target } = loaded;
+
+    const canVerify =
+      actor.role === 'admin' ||
+      (actor.role === 'moderator' &&
+        !!actor.moderatorBatch &&
+        actor.moderatorBatch === target.batch);
+    if (!canVerify) {
+      return {
+        status: 'error',
+        message: "Only an admin or the moderator of this member's batch can decide verification.",
+      };
+    }
 
     if (target.verificationStatus === status) return { status: 'ok' };
 

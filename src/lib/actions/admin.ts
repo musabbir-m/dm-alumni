@@ -24,8 +24,10 @@ async function resolveActorId(): Promise<{ actorId: string } | AdminResult> {
   await connectDB();
   const actor = await User.findOne({ clerkId: userId }).lean();
   if (!actor) {
-    // Unreachable through the UI (requireAdmin gates the page) — but actions
-    // are callable directly, so guard anyway; the core re-checks admin-ness.
+    // Unreachable through the UI (requireStaff gates the page) — but actions
+    // are callable directly, so guard anyway; the core re-authorizes per
+    // mutation (role changes admin-only, verification batch-scoped for
+    // moderators).
     return { status: 'error', message: 'Your account was not found.' };
   }
   return { actorId: actor._id.toString() };

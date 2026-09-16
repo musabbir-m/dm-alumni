@@ -55,10 +55,12 @@ export async function getSessionUser() {
   return findOrLinkUser(userId);
 }
 
-/** Page guard for admin-only pages (/admin) — non-admins land on the home page. */
-export async function requireAdmin() {
+/** Page guard for the staff dashboard (/admin) — admins and batch moderators
+ *  get in; everyone else lands on the home page. */
+export async function requireStaff() {
   const user = await requireUser();
-  if ((user.role ?? 'alumni') !== 'admin') redirect('/');
+  const role = user.role ?? 'alumni';
+  if (role !== 'admin' && role !== 'moderator') redirect('/');
   return user;
 }
 

@@ -11,15 +11,21 @@ import type { Role, VerificationStatus } from '@/lib/models/User';
  * row; only these buttons hydrate, so pending/error state stays scoped to
  * one member. On success the action's revalidatePath('/admin') ships fresh
  * props for the whole list — no client-side refresh code needed.
+ *
+ * Admins get the role toggle plus Approve/Reject; moderators — for whom the
+ * page only renders this component on their own batch's rows — get
+ * verification controls only (canToggleRole=false).
  */
 export default function AdminUserControls({
   userId,
   role,
   status,
+  canToggleRole,
 }: {
   userId: string;
   role: Role;
   status: VerificationStatus;
+  canToggleRole: boolean;
 }) {
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState<'role' | 'approve' | 'reject' | null>(null);
@@ -41,25 +47,27 @@ export default function AdminUserControls({
   return (
     <div className="flex flex-col items-start gap-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            run('role', () =>
-              updateUserRoleAction(userId, role === 'moderator' ? 'alumni' : 'moderator')
-            )
-          }
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ocean-200/70 bg-white/60 px-3 py-1.5 text-xs font-semibold text-ocean-700 transition-all hover:border-ocean-300 hover:text-ocean-900 disabled:opacity-60 dark:border-ocean-700/50 dark:bg-ocean-800/40 dark:text-ocean-200 dark:hover:border-ocean-600 dark:hover:text-white"
-        >
-          {busy === 'role' ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : role === 'moderator' ? (
-            <ArrowDownRight className="h-3.5 w-3.5" />
-          ) : (
-            <ShieldCheck className="h-3.5 w-3.5" />
-          )}
-          {role === 'moderator' ? 'Demote to Alumni' : 'Promote to Moderator'}
-        </button>
+        {canToggleRole && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              run('role', () =>
+                updateUserRoleAction(userId, role === 'moderator' ? 'alumni' : 'moderator')
+              )
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ocean-200/70 bg-white/60 px-3 py-1.5 text-xs font-semibold text-ocean-700 transition-all hover:border-ocean-300 hover:text-ocean-900 disabled:opacity-60 dark:border-ocean-700/50 dark:bg-ocean-800/40 dark:text-ocean-200 dark:hover:border-ocean-600 dark:hover:text-white"
+          >
+            {busy === 'role' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : role === 'moderator' ? (
+              <ArrowDownRight className="h-3.5 w-3.5" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            )}
+            {role === 'moderator' ? 'Demote to Alumni' : 'Promote to Moderator'}
+          </button>
+        )}
 
         <button
           type="button"

@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight, Users, Waves, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Users, Waves, Sparkles, Maximize2, X } from 'lucide-react';
 import { batches } from '@/data/batches';
 
 const AUTOPLAY_MS = 4500;
@@ -10,7 +11,10 @@ const AUTOPLAY_MS = 4500;
 export default function Hero() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const imageBtnRef = useRef<HTMLButtonElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const goTo = useCallback((idx: number) => {
     setActive((idx + batches.length) % batches.length);
@@ -20,14 +24,33 @@ export default function Hero() {
   const prev = useCallback(() => goTo(active - 1), [active, goTo]);
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || expanded) return;
     timerRef.current = setInterval(() => {
       setActive((p) => (p + 1) % batches.length);
     }, AUTOPLAY_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [paused]);
+  }, [paused, expanded]);
+
+  // Lightbox: Esc closes, the page behind stops scrolling, focus starts on
+  // the close button and returns to the carousel image when it shuts.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    const trigger = imageBtnRef.current;
+    document.body.style.overflow = 'hidden';
+    closeBtnRef.current?.focus();
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      trigger?.focus();
+    };
+  }, [expanded]);
 
   return (
     <section
@@ -144,10 +167,17 @@ export default function Hero() {
             {/* Image stack — crossfade */}
             <div className="relative aspect-[4/5] overflow-hidden sm:aspect-[3/4] lg:aspect-[5/6]">
               {batches.map((batch, i) => (
-                <div
+                <button
                   key={batch.year}
-                  className={`absolute inset-0 transition-all duration-[1400ms] ease-out ${
-                    i === active ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                  type="button"
+                  ref={i === active ? imageBtnRef : undefined}
+                  tabIndex={i === active ? 0 : -1}
+                  onClick={() => setExpanded(true)}
+                  aria-label={`Expand ${batch.batchNo} batch photo`}
+                  className={`group/img absolute inset-0 block cursor-zoom-in transition-all duration-[1400ms] ease-out ${
+                    i === active
+                      ? 'pointer-events-auto opacity-100 scale-100'
+                      : 'pointer-events-none opacity-0 scale-105'
                   }`}
                 >
                   <img
@@ -156,15 +186,19 @@ export default function Hero() {
                     className="h-full w-full object-cover"
                     loading={i === 0 ? 'eager' : 'lazy'}
                   />
-                </div>
+                  {/* Expand hint — appears on hover */}
+                  <span className="pointer-events-none absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-ocean-950/50 text-white opacity-0 backdrop-blur-md transition-all duration-300 group-hover/img:opacity-100">
+                    <Maximize2 className="h-4 w-4" />
+                  </span>
+                </button>
               ))}
 
               {/* Gradient overlays on the image */}
-              <div className="absolute inset-0 bg-gradient-to-t from-ocean-950/90 via-ocean-950/10 to-ocean-950/20 dark:via-ocean-950/20 dark:to-ocean-950/30" />
-              <div className="absolute inset-0 bg-gradient-to-r from-ocean-950/40 via-transparent to-transparent dark:from-ocean-950/50" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ocean-950/90 via-ocean-950/10 to-ocean-950/20 dark:via-ocean-950/20 dark:to-ocean-950/30" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ocean-950/40 via-transparent to-transparent dark:from-ocean-950/50" />
 
               {/* Top badge */}
-              <div className="absolute left-4 top-4 flex items-center gap-2">
+              <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-reef-500/90 backdrop-blur-md dark:bg-reef-500/80">
                   <Waves className="h-4 w-4 text-white" strokeWidth={2.2} />
                 </span>
@@ -174,7 +208,7 @@ export default function Hero() {
               </div>
 
               {/* Active batch info — bottom overlay */}
-              <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5 sm:p-6">
                 <div key={active} className="animate-fade-in">
                   <div className="flex items-end justify-between gap-4">
                     <div>
@@ -215,7 +249,7 @@ export default function Hero() {
               </div>
 
               {/* Sparkle accent */}
-              <div className="absolute right-6 top-20 animate-pulse-slow">
+              <div className="pointer-events-none absolute right-6 top-20 animate-pulse-slow">
                 <Sparkles className="h-5 w-5 text-white/40" />
               </div>
             </div>
@@ -268,6 +302,49 @@ export default function Hero() {
           </div>
         </div>
       </div>
+
+      {/* Lightbox — portaled to <body> so no ancestor stacking context can
+          clip or trap it. Clicking the backdrop, the X button, or pressing
+          Esc closes it; clicking the photo itself does not. */}
+      {expanded &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${batches[active].batchNo} batch photo`}
+            className="fixed inset-0 z-[100] flex animate-fade-in flex-col items-center justify-center gap-5 bg-ocean-950/90 p-4 backdrop-blur-md sm:p-8"
+            onClick={() => setExpanded(false)}
+          >
+            <div className="relative animate-fade-up" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={batches[active].image}
+                alt={`DSM ${batches[active].batchNo} Batch group photo`}
+                className="max-h-[75vh] w-auto max-w-full rounded-2xl border border-white/10 object-contain shadow-2xl shadow-black/50"
+              />
+              <button
+                ref={closeBtnRef}
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label="Close photo"
+                className="absolute -right-3 -top-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-ocean-900/90 text-white shadow-lg backdrop-blur-md transition-all hover:scale-110 hover:border-reef-400 hover:bg-reef-500"
+              >
+                <X className="h-5 w-5" strokeWidth={2.2} />
+              </button>
+            </div>
+            <div className="animate-fade-up text-center" onClick={(e) => e.stopPropagation()}>
+              <p className="font-display text-xl font-bold text-white">
+                {batches[active].batchNo} Batch
+                <span className="ml-2 text-sm font-semibold text-reef-300">
+                  Session {batches[active].session}
+                </span>
+              </p>
+              <p className="mt-1 text-xs italic text-ocean-200/80">
+                &ldquo;{batches[active].motto}&rdquo;
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
     </section>
   );
 }

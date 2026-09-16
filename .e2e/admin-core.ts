@@ -5,7 +5,9 @@
  *   3    demote: role back to alumni, moderatorBatch cleared
  *   4-6  verify / reject / re-approve / same-status no-op
  *   7-12 guards: non-admin actor, self-target, admin-target, unknown ids,
- *        invalid literals — every rejection leaves the data unchanged */
+ *        invalid literals — every rejection leaves the data unchanged
+ * 13-17 moderator scope: own-batch verify ok; other-batch / null-batch /
+ *        admin-target / self refused; admin still decides any batch */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import mongoose from 'mongoose';
@@ -39,17 +41,21 @@ async function main() {
   loadEnvLocal();
   await connectDB();
 
-  const [adminA, adminB, alumni1, mod1] = await User.create([
+  const [adminA, adminB, alumni1, mod1, mod2, alumni2] = await User.create([
     { name: 'Admin A', email: 'admin-a+tmp@dm-alumni.local', phone: '+8801700000001', studentId: 'ADMINTMP-A-01', batch: '2015', role: 'admin', verificationStatus: 'verified' },
     { name: 'Admin B', email: 'admin-b+tmp@dm-alumni.local', phone: '+8801700000002', studentId: 'ADMINTMP-B-02', batch: '2016', role: 'admin', verificationStatus: 'verified' },
     { name: 'Alumni One', email: 'alumni-one+tmp@dm-alumni.local', phone: '+8801700000003', studentId: 'ADMINTMP-C-03', batch: '2019', role: 'alumni', verificationStatus: 'pending' },
     { name: 'Mod One', email: 'mod-one+tmp@dm-alumni.local', phone: '+8801700000004', studentId: 'ADMINTMP-D-04', batch: '2018', role: 'moderator', verificationStatus: 'verified', moderatorBatch: '2018' },
+    { name: 'Mod Two', email: 'mod-two+tmp@dm-alumni.local', phone: '+8801700000005', studentId: 'ADMINTMP-E-05', batch: '2018', role: 'moderator', verificationStatus: 'verified', moderatorBatch: null },
+    { name: 'Alumni Two', email: 'alumni-two+tmp@dm-alumni.local', phone: '+8801700000006', studentId: 'ADMINTMP-F-06', batch: '2018', role: 'alumni', verificationStatus: 'pending' },
   ]);
   const id = {
     adminA: adminA._id.toString(),
     adminB: adminB._id.toString(),
     alumni1: alumni1._id.toString(),
     mod1: mod1._id.toString(),
+    mod2: mod2._id.toString(),
+    alumni2: alumni2._id.toString(),
   };
   const fresh = async (userId: string) => {
     const u = await User.findById(userId).lean();
@@ -138,6 +144,32 @@ async function main() {
     check("12. status 'pending' refused", r.status === 'error');
     const finalAlumni = await fresh(id.alumni1);
     check('12. alumni1 unchanged by refusals', finalAlumni.role === 'alumni' && finalAlumni.verificationStatus === 'verified');
+
+    // 13. Batch moderator verifies a member of their own batch
+    r = await setUserVerification(id.mod1, id.alumni2, 'verified');
+    check('13. batch moderator verifies own-batch member -> ok', r.status === 'ok');
+    check('13. alumni2 verified', (await fresh(id.alumni2)).verificationStatus === 'verified');
+
+    // 14. Batch moderator cannot verify outside their batch
+    r = await setUserVerification(id.mod1, id.alumni1, 'rejected');
+    check('14. moderator other-batch -> error', r.status === 'error');
+    check('14. alumni1 unchanged', (await fresh(id.alumni1)).verificationStatus === 'verified');
+
+    // 15. Moderator without a moderated batch can verify nobody
+    r = await setUserVerification(id.mod2, id.alumni2, 'rejected');
+    check('15. moderator without batch -> error', r.status === 'error');
+    check('15. alumni2 still verified', (await fresh(id.alumni2)).verificationStatus === 'verified');
+
+    // 16. Shared guards apply to moderators too — no admin targets, no self
+    r = await setUserVerification(id.mod1, id.adminA, 'rejected');
+    check('16. moderator targeting admin -> error', r.status === 'error');
+    r = await setUserVerification(id.mod1, id.mod1, 'verified');
+    check('16. moderator self-verification -> error', r.status === 'error');
+
+    // 17. Admins still decide any batch
+    r = await setUserVerification(id.adminA, id.alumni2, 'rejected');
+    check('17. admin rejects a 2018 member -> ok', r.status === 'ok');
+    check('17. alumni2 rejected', (await fresh(id.alumni2)).verificationStatus === 'rejected');
   } finally {
     await User.deleteMany({ _id: { $in: Object.values(id) } });
     await mongoose.disconnect();

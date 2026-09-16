@@ -16,7 +16,9 @@ export interface Batch {
 export const batchName = (b: Batch) => `DSM ${b.batchNo} Batch (Session ${b.session})`;
 
 // Batch group photos — each represents a graduating cohort.
-// Images and counts are placeholders pending MongoDB-backed batch data.
+// 1st–7th are real photos served from /batch-image (WhatsApp Image…jpeg in
+// that folder is unused). 8th–10th still use stock placeholders, and counts
+// are estimates — both pending MongoDB-backed batch data.
 export const batches: Batch[] = [
   {
     year: '2011',
@@ -24,8 +26,7 @@ export const batches: Batch[] = [
     batchNo: '1st',
     label: 'Pioneers',
     motto: 'The first to answer the call',
-    image:
-      'https://images.pexels.com/photos/6647008/pexels-photo-6647008.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/1st-batch.jpeg',
     count: 42,
   },
   {
@@ -34,8 +35,7 @@ export const batches: Batch[] = [
     batchNo: '2nd',
     label: 'Vanguard',
     motto: 'Rising to every challenge',
-    image:
-      'https://images.pexels.com/photos/6646918/pexels-photo-6646918.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/2nd-batch.jpeg',
     count: 56,
   },
   {
@@ -44,8 +44,7 @@ export const batches: Batch[] = [
     batchNo: '3rd',
     label: 'Resilience',
     motto: 'Unbroken through the storm',
-    image:
-      'https://images.pexels.com/photos/6646770/pexels-photo-6646770.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/3rd-batch.jpeg',
     count: 63,
   },
   {
@@ -54,8 +53,7 @@ export const batches: Batch[] = [
     batchNo: '4th',
     label: 'Horizon',
     motto: 'New frontiers of preparedness',
-    image:
-      'https://images.pexels.com/photos/6647115/pexels-photo-6647115.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/4th-batch.jpeg',
     count: 71,
   },
   {
@@ -64,8 +62,7 @@ export const batches: Batch[] = [
     batchNo: '5th',
     label: 'Tide',
     motto: 'Strength that rises together',
-    image:
-      'https://images.pexels.com/photos/12091690/pexels-photo-12091690.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/5th-batch.jpeg',
     count: 68,
   },
   {
@@ -74,8 +71,7 @@ export const batches: Batch[] = [
     batchNo: '6th',
     label: 'Beacon',
     motto: 'Light in the aftermath',
-    image:
-      'https://images.pexels.com/photos/6646869/pexels-photo-6646869.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/6th-batch.jpeg',
     count: 79,
   },
   {
@@ -84,8 +80,7 @@ export const batches: Batch[] = [
     batchNo: '7th',
     label: 'Harbor',
     motto: 'Shelter built from experience',
-    image:
-      'https://images.pexels.com/photos/6647008/pexels-photo-6647008.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    image: '/batch-image/7th-batch.jpeg',
     count: 74,
   },
   {

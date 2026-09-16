@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   Waves, ArrowLeft, Search, ChevronDown, Users, Clock, CheckCircle2, XCircle, ShieldCheck,
 } from 'lucide-react';
-import { requireAdmin } from '@/lib/auth';
+import { requireStaff } from '@/lib/auth';
 import User, { VERIFICATION_STATUSES } from '@/lib/models/User';
 import type { Role, VerificationStatus } from '@/lib/models/User';
 import { batches, batchName } from '@/data/batches';
@@ -15,7 +15,7 @@ import { inputCls, iconCls } from '@/components/form-ui';
 
 export const metadata: Metadata = {
   title: 'Member Management — DM Alumni Association',
-  description: 'Admin dashboard — manage members, roles, and verification.',
+  description: 'Staff dashboard — manage members, roles, and verification.',
 };
 
 /** Shared grid template for the list header and every row. */
@@ -49,6 +49,8 @@ type AdminUserView = {
   photo: string | null;
   initials: string;
   isSelf: boolean;
+  /** Viewer may approve/reject this member (admin: everyone; moderator: own batch). */
+  canVerify: boolean;
 };
 
 export default async function AdminPage({
@@ -56,8 +58,13 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const admin = await requireAdmin();
+  const viewer = await requireStaff();
   const sp = await searchParams;
+
+  // Admins act on every row; moderators only inside their moderated batch
+  const viewerRole = (viewer.role ?? 'alumni') as Role;
+  const viewerIsAdmin = viewerRole === 'admin';
+  const modBatch = viewerRole === 'moderator' ? viewer.moderatorBatch ?? null : null;
 
   // Defensive parsing — anything malformed degrades to "no filter"
   const q = typeof sp.q === 'string' ? sp.q.trim() : '';
@@ -102,10 +109,17 @@ export default async function AdminPage({
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join(''),
-    isSelf: u._id.equals(admin._id),
+    isSelf: u._id.equals(viewer._id),
+    canVerify: viewerIsAdmin || (!!modBatch && u.batch === modBatch),
   }));
 
   const hasFilter = !!(q || batch || status);
+  const modBatchInfo = modBatch ? batches.find((b) => b.year === modBatch) : undefined;
+  const subtitle = viewerIsAdmin
+    ? 'Every registered member across all batches — promote moderators and decide verifications.'
+    : `Every registered member across all batches — you decide verification for ${
+        modBatchInfo ? batchName(modBatchInfo) : `batch ${modBatch}`
+      }.`;
 
   const tiles = [
     { label: 'Members', value: total, icon: Users, chip: 'bg-ocean-100/70 text-ocean-600 dark:bg-ocean-800/60 dark:text-ocean-200' },
@@ -160,10 +174,7 @@ export default async function AdminPage({
                 <h1 className="font-display text-2xl font-bold tracking-tight text-ocean-900 dark:text-white sm:text-3xl">
                   Member management
                 </h1>
-                <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">
-                  Every registered member across all batches — promote moderators and decide
-                  verifications.
-                </p>
+                <p className="mt-1.5 text-sm text-ocean-600/70 dark:text-ocean-100/70">{subtitle}</p>
               </div>
             </div>
 
@@ -347,8 +358,17 @@ export default async function AdminPage({
                             <span className="text-xs text-ocean-400 dark:text-ocean-300/50">
                               {u.isSelf ? 'You' : 'Admin'}
                             </span>
+                          ) : !u.canVerify ? (
+                            <span className="text-xs text-ocean-400 dark:text-ocean-300/50">
+                              Outside your batch
+                            </span>
                           ) : (
-                            <AdminUserControls userId={u.id} role={u.role} status={u.status} />
+                            <AdminUserControls
+                              userId={u.id}
+                              role={u.role}
+                              status={u.status}
+                              canToggleRole={viewerIsAdmin}
+                            />
                           )}
                         </Cell>
                       </li>
