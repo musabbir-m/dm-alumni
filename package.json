@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "import:students": "tsx scripts/import-students.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.1",

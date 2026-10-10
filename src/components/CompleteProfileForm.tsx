@@ -66,6 +66,18 @@ export default function CompleteProfileForm({
     };
   }, [photoUrl]);
 
+  // React resets <form action> fields when an action response lands. Text
+  // inputs survive (React keeps their defaultValue in sync), but a controlled
+  // <select> doesn't: no option carries the `selected` attribute, so the
+  // reset snaps the DOM to the first option while React — seeing an unchanged
+  // value prop — never repairs it. Without this, resubmitting after an error
+  // would silently send the first batch instead of the picked one (each
+  // action return is a fresh state object, so this runs per response).
+  const batchRef = useRef<HTMLSelectElement>(null);
+  useEffect(() => {
+    if (batchRef.current && form.batch) batchRef.current.value = form.batch;
+  }, [state, form.batch]);
+
   const update =
     (key: keyof typeof form) =>
     (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -240,6 +252,7 @@ export default function CompleteProfileForm({
           <select
             id="batch"
             name="batch"
+            ref={batchRef}
             value={form.batch}
             onChange={update('batch')}
             aria-invalid={!!serverErrors.batch}

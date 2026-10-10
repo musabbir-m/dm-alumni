@@ -79,8 +79,8 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-ocean-800/50 pt-8 sm:flex-row">
-          <p className="text-xs text-ocean-400/50">
-            &copy; {new Date().getFullYear()} Disaster Management Students&apos; Alumni Association. All rights reserved.
+          <p className="text-xs text-gray-300">
+            &copy; DMAA.
           </p>
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 text-xs text-ocean-400/50">

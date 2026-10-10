@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Waves, Menu, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import UserMenu from '@/components/UserMenu';
+import Image from 'next/image';
+import Logo from '../../public/Logo.jpeg'
 
 const navLinks = [
   { label: 'About', href: '#about' },
@@ -52,16 +54,21 @@ export default function Header() {
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
         <a href="#top" className="group flex items-center gap-2.5">
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
-            <Waves className="h-5 w-5 text-white" strokeWidth={2.2} />
-            <span className="absolute inset-0 rounded-xl bg-gradient-to-br from-ocean-400 to-reef-400 opacity-0 blur-md transition-opacity group-hover:opacity-60" />
+          <span className="relative flex  items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
+            <Image
+            src={Logo}
+            alt="Logo"
+            width={60}
+            height={60}
+            />
+            
+          
           </span>
           <span className="flex flex-col leading-none">
-            <span className="font-display text-base font-bold tracking-tight text-ocean-900 dark:text-white">
-              DM Alumni
-            </span>
-            <span className="text-[11px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
-              Disaster Management
+            <span className="font-display text-[18px] font-bold tracking-tight text-ocean-900 dark:text-white">
+      Disaster Management</span>
+            <span className="text-[14px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
+              Alumni Association   
             </span>
           </span>
         </a>

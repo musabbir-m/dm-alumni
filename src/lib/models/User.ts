@@ -20,7 +20,7 @@ const userSchema = new Schema(
       trim: true,
     },
     phone: { type: String, required: true, trim: true },
-    studentId: { type: String, required: true, unique: true, trim: true },
+    studentId: { type: String, required: true, trim: true },
     /** Session start year as a string, e.g. '2018' = DSM 8th Batch (Session 2018-19) — key into src/data/batches.ts */
     batch: { type: String, required: true },
     /** Current profession/role, shown in the batch directory */
@@ -45,6 +45,12 @@ const userSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// Student IDs are unique per batch, not globally — the same ID appears in
+// multiple batches (1717062 is in both '2017' and '2018'), and completeProfile
+// (src/lib/actions/register.ts) validates each submission against the roster
+// in models/Student.ts.
+userSchema.index({ studentId: 1, batch: 1 }, { unique: true });
 
 // Never leak internals through JSON (profile pages, API responses)
 userSchema.set('toJSON', {

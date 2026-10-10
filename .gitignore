@@ -32,3 +32,4 @@ public/uploads/
 *.sln
 *.sw?
 .env
+studentData.json

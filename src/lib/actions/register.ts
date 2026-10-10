@@ -4,6 +4,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
+import Student from '@/lib/models/Student';
 import { batches } from '@/data/batches';
 import {
   cloudinaryAssetFromUrl,
@@ -107,10 +108,23 @@ export async function completeProfile(
       };
     }
 
-    if (await User.exists({ studentId: data.studentId })) {
+    // Roster-gated: the (studentId, batch) pair must be a genuine department
+    // ID for that batch and not already claimed by another member. IDs are
+    // unique per batch, not globally — the same ID can exist in two batches.
+    if (await User.exists({ studentId: data.studentId, batch: data.batch })) {
       return {
         status: 'error',
-        errors: { studentId: 'An account with this Student ID already exists' },
+        errors: {
+          studentId: 'An account with this Student ID is already registered in this batch.',
+        },
+      };
+    }
+    if (!(await Student.exists({ studentId: data.studentId, batch: data.batch }))) {
+      return {
+        status: 'error',
+        errors: {
+          studentId: 'This Student ID is not valid for the selected batch.',
+        },
       };
     }
 
@@ -199,7 +213,9 @@ export async function completeProfile(
     if ((err as { code?: number })?.code === 11000) {
       return {
         status: 'error',
-        errors: { studentId: 'An account with this Student ID already exists' },
+        errors: {
+          studentId: 'An account with this Student ID is already registered in this batch.',
+        },
       };
     }
     console.error('completeProfile action failed:', err);
