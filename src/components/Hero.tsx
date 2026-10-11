@@ -96,8 +96,8 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-reef-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-reef-500 dark:bg-reef-400" />
             </span>
-            <span className="text-xs font-semibold tracking-wide text-ocean-700 dark:text-ocean-100">
-              Disaster Management Students&apos; Alumni Association
+            <span className="text-base font-semibold tracking-wide text-ocean-700 dark:text-ocean-100">
+              Disaster Management Alumni Association
             </span>
           </div>
 
@@ -112,7 +112,7 @@ export default function Hero() {
             className="mt-6 max-w-xl text-base leading-relaxed text-ocean-700/80 animate-fade-up dark:text-ocean-100/80 sm:text-lg"
             style={{ animationDelay: '0.15s', animationFillMode: 'both' }}
           >
-            We are the graduates of Disaster Management — a network of
+            We are the graduates of Disaster Management, BURU — a network of
             responders, researchers, and community leaders building a safer,
             more prepared world, one cohort at a time.
           </p>
@@ -144,8 +144,8 @@ export default function Hero() {
           >
             {[
               { value: '10', label: 'Cohorts' },
-              { value: '695', label: 'Alumni' },
-              { value: '24', label: 'Countries' },
+              { value: '500+', label: 'Alumni' },
+              { value: '8+', label: 'Countries' },
             ].map((stat, i) => (
               <div key={stat.label} className="group">
                 <p className="font-display text-2xl font-bold text-gradient transition-transform group-hover:scale-110">{stat.value}</p>

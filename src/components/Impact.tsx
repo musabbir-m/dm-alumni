@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LifeBuoy, Building2, GraduationCap, Microscope, TrendingUp } from 'lucide-react';
+import { LifeBuoy, GraduationCap, Microscope, TrendingUp } from 'lucide-react';
 
 const stats = [
-  { icon: LifeBuoy, value: 1200, suffix: '+', label: 'Relief missions supported' },
-  { icon: Building2, value: 48, suffix: '', label: 'Partner organizations' },
-  { icon: GraduationCap, value: 695, suffix: '', label: 'Alumni network members' },
-  { icon: Microscope, value: 65, suffix: '', label: 'Research publications' },
+  { icon: GraduationCap, value: 500, suffix: '+', label: 'Alumni network members' },
+  { icon: Microscope, value: 30, suffix: '+', label: 'Research publications' },
+  { icon: LifeBuoy, value: 2, suffix: '+', label: 'Relief missions supported' },
+
 ];
 
 function CountUp({ end, suffix }: { end: number; suffix: string }) {
@@ -71,11 +71,16 @@ export default function Impact() {
           </h2>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 3 stats: full row each on small screens, even columns on lg. With an
+            odd count, the last card spans both sm columns so it doesn't sit
+            alone at the left. */}
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-md reveal transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1"
+              className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-md reveal transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1${
+                i === stats.length - 1 && stats.length % 2 === 1 ? ' sm:col-span-2 lg:col-span-1' : ''
+              }`}
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               {/* Hover glow */}

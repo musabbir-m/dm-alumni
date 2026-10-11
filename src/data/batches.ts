@@ -90,7 +90,7 @@ export const batches: Batch[] = [
     label: 'Current',
     motto: 'Carrying change forward',
     image:
-      'https://images.pexels.com/photos/6646918/pexels-photo-6646918.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      '/batch-image/8th-batch.jpeg',
     count: 83,
   },
   {
@@ -100,7 +100,7 @@ export const batches: Batch[] = [
     label: 'Delta',
     motto: 'Where every current converges',
     image:
-      'https://images.pexels.com/photos/6646770/pexels-photo-6646770.jpeg?auto=compress&cs=tinysrgb&w=1600',
+     '/batch-image/9th-batch.jpeg',
     count: 69,
   },
   {
@@ -110,7 +110,7 @@ export const batches: Batch[] = [
     label: 'Compass',
     motto: 'Direction for what comes next',
     image:
-      'https://images.pexels.com/photos/6647115/pexels-photo-6647115.jpeg?auto=compress&cs=tinysrgb&w=1600',
+      '/batch-image/10th-batch.jpeg',
     count: 90,
   },
 ];

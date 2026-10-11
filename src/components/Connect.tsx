@@ -1,30 +1,10 @@
-'use client';
+import Link from 'next/link';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 
-import { useState, type FormEvent } from 'react';
-import { Mail, User, GraduationCap, Send, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
-import { batches, batchName } from '@/data/batches';
-
-type Status = 'idle' | 'loading' | 'success';
-
+// The right column used to hold a demo form that faked a successful
+// registration — the real (roster-gated) flow lives at /register, so it is
+// just a CTA now. No interactivity left: this renders on the server.
 export default function Connect() {
-  const [status, setStatus] = useState<Status>('idle');
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    batch: '',
-  });
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setStatus('loading');
-    setTimeout(() => setStatus('success'), 1200);
-  };
-
-  const reset = () => {
-    setForm({ name: '', email: '', batch: '' });
-    setStatus('idle');
-  };
-
   return (
     <section id="connect" className="relative overflow-hidden bg-gradient-to-b from-white via-ocean-50/30 to-ocean-50/40 py-24 dark:from-ocean-900 dark:via-ocean-950 dark:to-ocean-950 sm:py-32">
       <div className="absolute inset-0 bg-dots opacity-30 dark:hidden" />
@@ -82,114 +62,20 @@ export default function Connect() {
               </ul>
             </div>
 
-            {/* Right: form */}
-            <div className="relative p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-12 lg:border-l lg:border-t-0 lg:dark:border-l">
-              {status === 'success' ? (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-reef-50 ring-1 ring-reef-300 animate-fade-up dark:bg-reef-500/20 dark:ring-reef-500/30">
-                    <CheckCircle2 className="h-8 w-8 text-reef-600 dark:text-reef-300" strokeWidth={2} />
-                  </span>
-                  <h3 className="mt-5 font-display text-2xl font-bold text-ocean-900 animate-fade-up dark:text-white" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
-                    Welcome aboard!
-                  </h3>
-                  <p className="mt-2 max-w-xs text-sm text-ocean-600/70 animate-fade-up dark:text-ocean-100/70" style={{ animationDelay: '0.2s', animationFillMode: 'both' }}>
-                    Your registration has been received. Check your inbox for a
-                    confirmation and next steps.
-                  </p>
-                  <button
-                    onClick={reset}
-                    className="mt-6 text-sm font-semibold text-reef-600 transition-colors hover:text-reef-500 dark:text-reef-300 dark:hover:text-reef-200"
-                  >
-                    Register another member
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div>
-                    <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-ocean-700 dark:text-ocean-100/80">
-                      Full Name
-                    </label>
-                    <div className="group relative">
-                      <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 transition-colors group-focus-within:text-reef-500 dark:text-ocean-300 dark:group-focus-within:text-reef-300" />
-                      <input
-                        id="name"
-                        type="text"
-                        required
-                        value={form.name}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        placeholder="Jordan Rivera"
-                        className="w-full rounded-xl border border-ocean-200 bg-white/60 py-3 pl-10 pr-4 text-sm text-ocean-900 placeholder-ocean-300 transition-all focus:border-reef-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-reef-400/20 dark:border-ocean-800/80 dark:bg-ocean-950/60 dark:text-white dark:placeholder-ocean-300/40 dark:focus:border-reef-500/60 dark:focus:bg-ocean-950 dark:focus:ring-reef-500/20"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-ocean-700 dark:text-ocean-100/80">
-                      Email Address
-                    </label>
-                    <div className="group relative">
-                      <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 transition-colors group-focus-within:text-reef-500 dark:text-ocean-300 dark:group-focus-within:text-reef-300" />
-                      <input
-                        id="email"
-                        type="email"
-                        required
-                        value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        placeholder="jordan.rivera@email.com"
-                        className="w-full rounded-xl border border-ocean-200 bg-white/60 py-3 pl-10 pr-4 text-sm text-ocean-900 placeholder-ocean-300 transition-all focus:border-reef-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-reef-400/20 dark:border-ocean-800/80 dark:bg-ocean-950/60 dark:text-white dark:placeholder-ocean-300/40 dark:focus:border-reef-500/60 dark:focus:bg-ocean-950 dark:focus:ring-reef-500/20"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label htmlFor="batch" className="mb-1.5 block text-sm font-medium text-ocean-700 dark:text-ocean-100/80">
-                      Graduating Batch
-                    </label>
-                    <div className="group relative">
-                      <GraduationCap className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 transition-colors group-focus-within:text-reef-500 dark:text-ocean-300 dark:group-focus-within:text-reef-300" />
-                      <select
-                        id="batch"
-                        required
-                        value={form.batch}
-                        onChange={(e) => setForm({ ...form, batch: e.target.value })}
-                        className="w-full appearance-none rounded-xl border border-ocean-200 bg-white/60 py-3 pl-10 pr-10 text-sm text-ocean-900 transition-all focus:border-reef-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-reef-400/20 dark:border-ocean-800/80 dark:bg-ocean-950/60 dark:text-white dark:focus:border-reef-500/60 dark:focus:bg-ocean-950 dark:focus:ring-reef-500/20"
-                      >
-                        <option value="" disabled>
-                          Select your cohort
-                        </option>
-                        {batches.map((b) => (
-                          <option key={b.year} value={b.year}>
-                            {batchName(b)}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ocean-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={status === 'loading'}
-                    className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-ocean-300/40 transition-all hover:brightness-110 disabled:opacity-70 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
-                  >
-                    {status === 'loading' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <span className="relative z-10">Submit Registration</span>
-                        <Send className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                      </>
-                    )}
-                  </button>
-                  <p className="text-center text-xs text-ocean-400 dark:text-ocean-300/40">
-                    By registering, you agree to the association&apos;s code of conduct.
-                  </p>
-                </form>
-              )}
+            {/* Right: registration CTA */}
+            <div className="relative flex flex-col items-center justify-center p-8 text-center dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-12 lg:border-l lg:border-t-0 lg:dark:border-l">
+              <Link
+                href="/register"
+                className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-8 py-4 text-sm font-semibold text-white shadow-xl shadow-ocean-300/40 transition-all hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
+              >
+                <span className="relative z-10">Register Now</span>
+                <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              </Link>
+              <p className="mt-4 max-w-xs text-sm text-ocean-600/70 dark:text-ocean-100/70">
+                Registration uses your department Student ID — your batch
+                moderator verifies each new member.
+              </p>
             </div>
           </div>
         </div>
