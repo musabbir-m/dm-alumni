@@ -116,7 +116,9 @@ export async function applyProfileUpdate(
         };
       }
       user.paymentReceiverId = rawReceiver ? new Types.ObjectId(rawReceiver) : null;
-      user.paymentStatus = rawReceiver ? 'pending' : 'unpaid';
+      // The TrxID moves the needle: a receiver alone stays unpaid, receiver
+      // + receipt reference is pending (staff then confirm → paid)
+      user.paymentStatus = rawReceiver && rawTrx ? 'pending' : 'unpaid';
       // Clearing the receiver clears the receipt reference with it
       user.paymentTransactionId = rawReceiver ? rawTrx : '';
     }

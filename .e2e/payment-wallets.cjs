@@ -24,15 +24,17 @@
  *     then Nagad/01812345678 saved → card shows the new values + "Edited",
  *     Mongo shows updatedAt > createdAt
  *   - Add tab again: the picked member now shows "Has wallet" (disabled)
- * Member-payment flow, same actor:
+ * Member-payment flow, same actor (the TrxID drives the status):
  *   - /profile/edit: gateway filter narrows the receiver dropdown (BKash
  *     hides Zephyr's nagad wallet, Nagad lists it with "Your batch" in the
- *     option label) → pick → TrxID input (disabled until a receiver is
- *     chosen) filled → save → Mongo shows receiverId + paymentTransactionId
- *     + paymentStatus pending; /profile shows the Payment pending badge +
- *     receiver card + the submitted TrxID
- *   - /admin: target row (receiver + TrxID set via Mongo) → Mark paid flips
- *     the badge and the doc to paid → Reset payment returns both to pending
+ *     option label) → pick → save WITHOUT a TrxID → Mongo shows receiverId
+ *     set but paymentStatus UNPAID; then the TrxID is filled and saved →
+ *     pending + paymentTransactionId persisted
+ *   - /profile shows the Payment pending badge + receiver card + the TrxID
+ *   - /admin: unpaid rows show no payment buttons; target row (receiver +
+ *     TrxID set via Mongo, pending) shows Mark paid but no Reset → Mark paid
+ *     flips the badge and the doc to paid → Reset payment returns both to
+ *     pending
  * Actor 2 signs up + registers (1417003/2014) picking Zephyr as receiver
  * with a TrxID at /register (pending + TrxID in Mongo), then is promoted to
  * moderator (moderatorBatch 2017) — /admin shows ONLY the Members tab.
@@ -63,9 +65,13 @@ const TARGET = {
   batch: '2018',
 };
 // Real roster pairs (validated by completeProfile): 1717062 sits in both the
-// 7th and 8th batch rosters — claimed here under 2018; 1417003 is a 2014 ID.
+// 7th and 8th batch rosters — claimed here under 2018. 1417003 was the 2014
+// fixture until a REAL member registered it through the dev server (same
+// Atlas DB) and the moderator actor started failing "already registered in
+// this batch" — run `node .e2e/check-pair.cjs` if this flake returns, and
+// re-pick from its free-pairs output.
 const ADMIN_PAIR = { studentId: '1717062', batch: '2018' };
-const MOD_PAIR = { studentId: '1417003', batch: '2014' };
+const MOD_PAIR = { studentId: '1417002', batch: '2014' };
 const WALLET_NUM_RAW = '+880 1712-345678'; // → 01712345678
 const WALLET_NUM_FIX = '01812345678';
 const TRX_EDIT = 'TRX9F7B2K1QZM'; // admin's receipt reference via /profile/edit
@@ -212,12 +218,19 @@ async function signUpActor(page, goto, email, first, last) {
  * otherwise assert the section's visibility matches whether wallets exist
  * (real wallets may legitimately pre-date this run). Selects hydrate late
  * like radios did — assert the hidden paymentReceiverId input caught the
- * pick before submitting. */
+ * pick before submitting. Text fills that land pre-hydration are silently
+ * dropped by React and then WIPED by the next re-render (the pick above
+ * proves hydration and forces one) — so the identity fields are re-asserted
+ * afterwards; a wipe here is what sends an empty phone/batch to the server
+ * and looks like a hung submit. */
 async function completeRegistration(page, pair, pick, baselineWallets = 0) {
   await page.waitForTimeout(1500);
-  await page.locator('#phone').fill('+8801712345678');
-  await page.locator('#studentId').fill(pair.studentId);
-  await page.locator('#batch').selectOption(pair.batch);
+  const phone = page.locator('#phone');
+  const sid = page.locator('#studentId');
+  const batchSel = page.locator('#batch');
+  await phone.fill('+8801712345678');
+  await sid.fill(pair.studentId);
+  await batchSel.selectOption(pair.batch);
   if (pick) {
     const dropdown = page.locator('#payment-receiver');
     if (!(await waitFor(() => dropdown.count().then((n) => n === 1), 8000))) {
@@ -231,6 +244,25 @@ async function completeRegistration(page, pair, pick, baselineWallets = 0) {
         if (!picked) await page.waitForTimeout(300);
       }
       check('register: receiver pick caught by React (hidden input)', picked);
+      // Re-assert the identity fields now that hydration is proven
+      for (let i = 0; i < 10; i++) {
+        if ((await phone.inputValue()) !== '+8801712345678') await phone.fill('+8801712345678');
+        if ((await sid.inputValue()) !== pair.studentId) await sid.fill(pair.studentId);
+        if ((await batchSel.inputValue()) !== pair.batch) await batchSel.selectOption(pair.batch);
+        if (
+          (await phone.inputValue()) === '+8801712345678' &&
+          (await sid.inputValue()) === pair.studentId &&
+          (await batchSel.inputValue()) === pair.batch
+        )
+          break;
+        await page.waitForTimeout(300);
+      }
+      check(
+        'register: identity fields survived hydration',
+        (await phone.inputValue()) === '+8801712345678' &&
+          (await sid.inputValue()) === pair.studentId &&
+          (await batchSel.inputValue()) === pair.batch
+      );
       if (pick.trx) {
         const trx = page.locator('#payment-transaction-id');
         const enabled = await waitFor(() => trx.isEnabled().catch(() => false), 5000);
@@ -246,7 +278,20 @@ async function completeRegistration(page, pair, pick, baselineWallets = 0) {
     );
   }
   await page.getByRole('button', { name: /Complete registration/i }).click();
-  await page.waitForSelector('text=Welcome aboard', { timeout: 60000 });
+  const ok = await waitFor(
+    () => page.locator('text=Welcome aboard').count().then((n) => n > 0),
+    60000
+  );
+  if (!ok) {
+    // A field error (e.g. the roster pair got claimed by a real member) keeps
+    // the form standing with alerts — dump them instead of timing out blind.
+    const alerts = await page.locator('[role="alert"]').allTextContents();
+    log('registration diagnostics — alerts:', JSON.stringify(alerts));
+    await page
+      .screenshot({ path: path.join(OUT, 'register-fail.png'), fullPage: true })
+      .catch(() => {});
+    throw new Error('registration did not reach the Welcome aboard panel');
+  }
 }
 
 async function main() {
@@ -320,6 +365,12 @@ async function main() {
   check('tabs: three for admin', (await page.locator('[role="tab"]').count()) === 3);
   check('tabs: Members selected by default', (await tab('Members').getAttribute('aria-selected')) === 'true');
   check('members panel: target row listed', await waitFor(() => page.locator('li', { hasText: TARGET.name }).count().then((n) => n === 1)));
+  // The target starts with no payment fields — Mark paid is a pending-only
+  // button (the member's TrxID submission opens it), so it must not render.
+  check(
+    'admin: unpaid row hides Mark paid',
+    (await page.locator('li', { hasText: TARGET.name }).getByRole('button', { name: 'Mark paid' }).count()) === 0
+  );
 
   // Wallets tab — empty state on a pristine DB; on a live DB the real
   // receivers are listed instead (never assert their names, they're real data)
@@ -488,7 +539,7 @@ async function main() {
     'edit: trx input enabled after pick',
     !(await page.locator('#payment-transaction-id').isDisabled())
   );
-  await page.locator('#payment-transaction-id').fill(TRX_EDIT);
+  // Save #1 WITHOUT a TrxID — a receiver alone must keep the dues unpaid
   await page.getByRole('button', { name: /Save changes/i }).click();
   const saveT0 = Date.now();
   const saved = await waitFor(() =>
@@ -513,7 +564,44 @@ async function main() {
       .screenshot({ path: path.join(OUT, 'profile-edit-save-fail.png'), fullPage: true })
       .catch(() => {});
   }
-  check('edit: profile save succeeds', saved);
+  check('edit: first save (receiver only) succeeds', saved);
+  check(
+    'mongo: receiver without a TrxID stays unpaid',
+    await waitFor(() =>
+      users
+        .findOne({ email: ADMIN_EMAIL })
+        .then(
+          (d) =>
+            !!d &&
+            d.paymentStatus === 'unpaid' &&
+            d.paymentReceiverId?.toString() === walletAfter._id.toString() &&
+            (d.paymentTransactionId ?? '') === ''
+        )
+    )
+  );
+
+  // Save #2 WITH the TrxID — that's what moves unpaid → pending. The success
+  // panel from save #1 still matches the locator, so wait on the Mongo doc
+  // instead; and never submit while the button is still pending.
+  const saveBtn = page.getByRole('button', { name: /Save changes/i });
+  const btnReady = await waitFor(() => saveBtn.isEnabled().catch(() => false));
+  await page.locator('#payment-transaction-id').fill(TRX_EDIT);
+  await saveBtn.click();
+  const trxSaved = await waitFor(() =>
+    users
+      .findOne({ email: ADMIN_EMAIL })
+      .then(
+        (d) => !!d && d.paymentStatus === 'pending' && d.paymentTransactionId === TRX_EDIT
+      )
+  );
+  if (!trxSaved) {
+    const alerts = await page.locator('[role="alert"]').allTextContents();
+    log('trx save diagnostics — alerts:', JSON.stringify(alerts));
+    await page
+      .screenshot({ path: path.join(OUT, 'profile-edit-trx-fail.png'), fullPage: true })
+      .catch(() => {});
+  }
+  check('edit: TrxID save flips dues to pending', trxSaved && btnReady);
   const adminDoc1 = await users.findOne({ email: ADMIN_EMAIL });
   check(
     'mongo: own receiver choice + TrxID persisted as pending',
@@ -554,6 +642,10 @@ async function main() {
   check(
     'admin: target row shows the TrxID evidence',
     (await targetRow.getByText(`TrxID ${TRX_TARGET}`).count()) === 1
+  );
+  check(
+    'admin: pending row hides Reset payment',
+    (await targetRow.getByRole('button', { name: 'Reset payment' }).count()) === 0
   );
   await targetRow.getByRole('button', { name: 'Mark paid' }).click();
   check(

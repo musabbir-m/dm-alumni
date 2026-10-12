@@ -222,7 +222,7 @@ export async function completeProfile(
             docType: doc.asset ? data.docType : existingEmail.docType,
             doc: doc.asset ? doc.asset.secureUrl : existingEmail.doc,
             paymentReceiverId: receiverId,
-            paymentStatus: receiverId ? 'pending' : 'unpaid',
+            paymentStatus: transactionId ? 'pending' : 'unpaid',
             paymentTransactionId: transactionId,
           },
         },
@@ -245,9 +245,10 @@ export async function completeProfile(
         doc: doc.asset ? doc.asset.secureUrl : null,
         // role/verificationStatus default to 'alumni'/'pending' — a batch
         // moderator flips the status after registration. Payment state is
-        // always explicit: unpaid, or pending once a receiver is chosen.
+        // always explicit: unpaid, or pending once a receipt TrxID is
+        // submitted (a receiver alone stays unpaid).
         paymentReceiverId: receiverId,
-        paymentStatus: receiverId ? 'pending' : 'unpaid',
+        paymentStatus: transactionId ? 'pending' : 'unpaid',
         paymentTransactionId: transactionId,
       });
     }

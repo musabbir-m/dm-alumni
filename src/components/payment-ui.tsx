@@ -159,8 +159,8 @@ export function PaymentReceiverPicker({
           </div>
           <p className="mt-1.5 text-xs leading-relaxed text-ocean-500 dark:text-ocean-300/70">
             {value === ''
-              ? 'Already paid? Choose a receiver first, then enter the transaction ID from your receipt — staff can confirm your payment faster.'
-              : 'Already paid? Enter the transaction ID from your bKash/Rocket/Nagad receipt so staff can confirm your payment faster.'}
+              ? 'Already paid? Choose a receiver first, then enter the transaction ID from your receipt — staff confirm it here.'
+              : 'Already paid? Enter the transaction ID from your bKash/Rocket/Nagad receipt — staff match it against their statement and mark your dues paid.'}
           </p>
         </Field>
       </div>

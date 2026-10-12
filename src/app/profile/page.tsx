@@ -316,7 +316,11 @@ export default async function ProfilePage() {
                   <p className="text-xs leading-relaxed text-ocean-500 dark:text-ocean-300/70">
                     {paymentStatus === 'paid'
                       ? 'Payment received — thank you for supporting the association.'
-                      : 'Complete your payment to be verified — pay your membership dues to your chosen receiver and a staff member will confirm it here.'}
+                      : paymentStatus === 'pending'
+                        ? 'Your transaction ID is being checked — a staff member will confirm your payment here.'
+                        : receiverId
+                          ? 'Dues not submitted yet — pay your receiver, then add the transaction ID from your receipt in Edit profile so staff can confirm it.'
+                          : 'No receiver chosen yet — pick one from Edit profile, then submit your transaction ID after paying your dues.'}
                   </p>
                 </div>
               </div>

@@ -22,9 +22,10 @@ export const metadata: Metadata = {
   description: 'Staff dashboard — manage members, verification, and payment wallets.',
 };
 
-/** Shared grid template for the list header and every row. */
-const ROW_COLS =
-  'md:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,auto)]';
+/** Shared grid template for the list header and every row — identity details
+ *  (email, student ID, batch, phone, role) fold into the Member cell so the
+ *  badges and actions get room instead of seven crushed columns. */
+const ROW_COLS = 'md:grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,auto)]';
 
 /** List cell — stacks with a tiny uppercase label on mobile, plain on md+. */
 function Cell({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
@@ -244,7 +245,7 @@ export default async function AdminPage({
           <div
             className={`hidden border-b border-ocean-100 px-6 py-3 md:grid md:items-center md:gap-4 dark:border-ocean-800/60 ${ROW_COLS}`}
           >
-            {['Member', 'Batch', 'Phone', 'Status', 'Payment', 'Role'].map((h) => (
+            {['Member', 'Status', 'Payment'].map((h) => (
               <span
                 key={h}
                 className="text-xs font-medium uppercase tracking-wide text-ocean-400 dark:text-ocean-300/60"
@@ -279,31 +280,29 @@ export default async function AdminPage({
                         </span>
                       )}
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ocean-900 dark:text-white">
-                          {u.name}
+                        <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-ocean-900 dark:text-white">
+                          <span className="truncate">{u.name}</span>
                           {u.isSelf && (
-                            <span className="ml-1.5 text-xs font-medium text-reef-600 dark:text-reef-300">
+                            <span className="shrink-0 text-xs font-medium text-reef-600 dark:text-reef-300">
                               (you)
+                            </span>
+                          )}
+                          {u.role !== 'alumni' && (
+                            <span className="shrink-0">
+                              <RoleBadge role={u.role} />
                             </span>
                           )}
                         </p>
                         <p className="truncate text-xs text-ocean-500 dark:text-ocean-300/70">
-                          {u.email} · {u.studentId}
+                          {u.email}
+                        </p>
+                        <p className="truncate text-xs text-ocean-400 dark:text-ocean-300/50">
+                          {u.studentId} ·{' '}
+                          {batchInfo ? `DSM ${batchInfo.batchNo} (${batchInfo.session})` : u.batch}{' '}
+                          · {u.phone}
                         </p>
                       </div>
                     </div>
-                  </Cell>
-
-                  <Cell label="Batch">
-                    <span className="text-sm text-ocean-700 dark:text-ocean-200">
-                      {batchInfo ? `DSM ${batchInfo.batchNo} (${batchInfo.session})` : u.batch}
-                    </span>
-                  </Cell>
-
-                  <Cell label="Phone">
-                    <span className="text-sm text-ocean-700 dark:text-ocean-200">
-                      {u.phone}
-                    </span>
                   </Cell>
 
                   <Cell label="Status">
@@ -314,21 +313,11 @@ export default async function AdminPage({
                     <PaymentStatusBadge status={u.payment} />
                     {u.paymentTrx && (
                       <p
-                        className="mt-1 truncate text-[10px] font-medium text-ocean-400 dark:text-ocean-300/60"
+                        className="mt-1 truncate font-mono text-[10px] font-medium text-ocean-400 dark:text-ocean-300/60"
                         title={`Transaction ID ${u.paymentTrx}`}
                       >
                         TrxID {u.paymentTrx}
                       </p>
-                    )}
-                  </Cell>
-
-                  <Cell label="Role">
-                    {u.role === 'alumni' ? (
-                      <span className="text-xs text-ocean-400 dark:text-ocean-300/50">
-                        Alumni
-                      </span>
-                    ) : (
-                      <RoleBadge role={u.role} />
                     )}
                   </Cell>
 
