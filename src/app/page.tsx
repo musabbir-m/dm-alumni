@@ -5,6 +5,7 @@ import Batches from '@/components/Batches';
 import Impact from '@/components/Impact';
 import Events from '@/components/Events';
 import Connect from '@/components/Connect';
+import Contributors from '@/components/Contributors';
 import Footer from '@/components/Footer';
 import ScrollEffects from '@/components/ScrollEffects';
 import { getVerifiedBatchCounts } from '@/lib/directory';
@@ -32,6 +33,7 @@ export default async function Home() {
         <Impact />
         <Events />
         <Connect />
+        <Contributors />
       </main>
       <Footer />
     </div>

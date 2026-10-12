@@ -6,7 +6,8 @@ export const metadata: Metadata = {
   title: 'DM Alumni Association — Resilience in Every Wave',
   description:
     "The Disaster Management Students' Alumni Association — uniting graduates dedicated to resilience, response, and community.",
-  icons: { icon: '/favicon.svg' },
+  // Favicon + Apple touch icon come from the file conventions
+  // src/app/icon.png and src/app/apple-icon.png (generated from public/Logo.jpeg).
   openGraph: {
     title: 'Disaster Management Alumni Association',
     description: 'Uniting graduates dedicated to resilience, response, and community.',
