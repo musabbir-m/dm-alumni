@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Waves, Menu, X } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import { Menu, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import UserMenu from '@/components/UserMenu';
 import Image from 'next/image';
@@ -12,13 +13,16 @@ const navLinks = [
   { label: 'Batches', href: '#batches' },
   { label: 'Impact', href: '#impact' },
   { label: 'Events', href: '#events' },
-  { label: 'Connect', href: '#connect' },
+  // Registration pitch only — hidden once Clerk confirms a session
+  { label: 'Register', href: '/register', signedOutOnly: true },
 ];
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const { isLoaded, isSignedIn } = useUser();
+  const links = navLinks.filter((l) => !l.signedOutOnly || !(isLoaded && isSignedIn));
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -74,7 +78,7 @@ export default function Header() {
         </a>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {navLinks.map((link) => {
+          {links.map((link) => {
             const isActive = activeSection === link.href.replace('#', '');
             return (
               <a
@@ -119,7 +123,7 @@ export default function Header() {
         }`}
       >
         <nav className="flex flex-col gap-1 px-5 py-4">
-          {navLinks.map((link) => (
+          {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
