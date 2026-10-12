@@ -1,10 +1,13 @@
 import { z } from 'zod';
+import { Types } from 'mongoose';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
+import PaymentWallet from '@/lib/models/PaymentWallet';
 import { batches } from '@/data/batches';
 import { destroyCloudinaryAsset, cloudinaryAssetFromUrl, optimizedImageUrl } from '@/lib/cloudinary';
 import { DOC_FOLDER, DOC_TYPES, IMAGE_TYPES, PHOTO_FOLDER, saveUpload } from '@/lib/uploads';
 import { linkedinUrlSchema, professionSchema } from '@/lib/profile-fields';
+import { TRANSACTION_ID_MESSAGE, TRANSACTION_ID_PATTERN } from '@/lib/wallet-fields';
 import type { CloudinaryAsset } from '@/lib/cloudinary';
 
 export type ProfileState =
@@ -77,6 +80,45 @@ export async function applyProfileUpdate(
             'Your account is verified — the verification document can no longer be changed. Contact a moderator if it needs correcting.',
         },
       };
+    }
+
+    // Dues receiver + TrxID — touched only when the form rendered the picker
+    // (the locked variant sends no paymentReceiverId field at all). Once staff
+    // confirmed the payment the choice is theirs to reset, so a stale form
+    // after confirmation is silently ignored rather than errored. Validated
+    // before any upload; ObjectId.isValid first so a malformed id doesn't
+    // CastError inside exists() into the generic catch.
+    const rawReceiver = (formData.get('paymentReceiverId') ?? '').toString().trim();
+    if (formData.has('paymentReceiverId') && user.paymentStatus !== 'paid') {
+      const rawTrx = (formData.get('paymentTransactionId') ?? '').toString().trim();
+      if (rawReceiver) {
+        const valid =
+          Types.ObjectId.isValid(rawReceiver) &&
+          (await PaymentWallet.exists({ _id: rawReceiver }));
+        if (!valid) {
+          return {
+            status: 'error',
+            errors: {
+              paymentReceiverId: 'That payment receiver is no longer available — choose another or clear the choice.',
+            },
+          };
+        }
+        // TrxID is evidence for a chosen receiver — rejected on its own
+        if (rawTrx && !TRANSACTION_ID_PATTERN.test(rawTrx)) {
+          return { status: 'error', errors: { paymentTransactionId: TRANSACTION_ID_MESSAGE } };
+        }
+      } else if (rawTrx) {
+        return {
+          status: 'error',
+          errors: {
+            paymentTransactionId: 'Choose a payment receiver before adding a transaction ID.',
+          },
+        };
+      }
+      user.paymentReceiverId = rawReceiver ? new Types.ObjectId(rawReceiver) : null;
+      user.paymentStatus = rawReceiver ? 'pending' : 'unpaid';
+      // Clearing the receiver clears the receipt reference with it
+      user.paymentTransactionId = rawReceiver ? rawTrx : '';
     }
 
     const photo = await saveUpload(formData.get('photo'), IMAGE_TYPES, PHOTO_FOLDER);

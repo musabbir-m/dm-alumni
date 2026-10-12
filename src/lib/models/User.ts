@@ -6,6 +6,9 @@ export type Role = (typeof ROLES)[number];
 export const VERIFICATION_STATUSES = ['pending', 'verified', 'rejected'] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
+export const PAYMENT_STATUSES = ['unpaid', 'pending', 'paid'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
 export const DOC_TYPES = ['certificate', 'card'] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 
@@ -42,6 +45,12 @@ const userSchema = new Schema(
     docType: { type: String, enum: [...DOC_TYPES, null], default: null },
     /** Public URL path of the verification document */
     doc: { type: String, default: null },
+    /** The payment wallet this member pays their membership dues to */
+    paymentReceiverId: { type: Schema.Types.ObjectId, ref: 'PaymentWallet', default: null },
+    /** unpaid → member picked a receiver → pending; staff confirmed receipt → paid (resettable to pending) */
+    paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'unpaid' },
+    /** TrxID from the member's payment receipt — evidence for the staff confirming; '' until submitted */
+    paymentTransactionId: { type: String, trim: true, maxlength: 60, default: '' },
   },
   { timestamps: true }
 );

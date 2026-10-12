@@ -10,6 +10,9 @@ import { LinkedinIcon } from '@/components/BrandIcons';
 import { batches, batchName } from '@/data/batches';
 import { completeProfile } from '@/lib/actions/register';
 import type { CompleteProfileState } from '@/lib/actions/register';
+import { PaymentReceiverPicker } from '@/components/payment-ui';
+import type { WalletView } from '@/lib/payment-wallets';
+import type { GatewayFilter } from '@/lib/wallet-fields';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
 
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
@@ -28,9 +31,12 @@ const formatSize = (bytes: number) =>
 export default function CompleteProfileForm({
   clerkName,
   clerkEmail,
+  receivers,
 }: {
   clerkName: string;
   clerkEmail: string;
+  /** Payment receivers the member may designate for their dues (empty = section hidden) */
+  receivers: WalletView[];
 }) {
   const [state, formAction, isPending] = useActionState<CompleteProfileState, FormData>(
     completeProfile,
@@ -48,6 +54,12 @@ export default function CompleteProfileForm({
   const [photoUrl, setPhotoUrl] = useState('');
   const [docType, setDocType] = useState<DocType>('certificate');
   const [doc, setDoc] = useState<File | null>(null);
+  // Optional dues receiver — '' means "skip for now" (stays unpaid)
+  const [paymentReceiverId, setPaymentReceiverId] = useState('');
+  // UI-only gateway filter for the receiver dropdown
+  const [paymentGateway, setPaymentGateway] = useState<GatewayFilter>('all');
+  // TrxID from the member's receipt — evidence for the staff confirming
+  const [paymentTransactionId, setPaymentTransactionId] = useState('');
   // The native inputs are the source of truth on submit — the form action
   // serializes the DOM, so a file must STAY in its input or it never reaches
   // the server. State is only for preview/validation.
@@ -74,9 +86,15 @@ export default function CompleteProfileForm({
   // would silently send the first batch instead of the picked one (each
   // action return is a fresh state object, so this runs per response).
   const batchRef = useRef<HTMLSelectElement>(null);
+  // The payment selects live inside PaymentReceiverPicker — same auto-reset
+  // exposure, same re-assert fix (refs passed down as plain props).
+  const paymentGatewayRef = useRef<HTMLSelectElement>(null);
+  const paymentReceiverRef = useRef<HTMLSelectElement>(null);
   useEffect(() => {
     if (batchRef.current && form.batch) batchRef.current.value = form.batch;
-  }, [state, form.batch]);
+    if (paymentGatewayRef.current) paymentGatewayRef.current.value = paymentGateway;
+    if (paymentReceiverRef.current) paymentReceiverRef.current.value = paymentReceiverId;
+  }, [state, form.batch, paymentGateway, paymentReceiverId]);
 
   const update =
     (key: keyof typeof form) =>
@@ -450,6 +468,24 @@ export default function CompleteProfileForm({
           </p>
         </div>
       </Field>
+
+      {/* Membership dues — optional receiver choice, last so required fields stay up top */}
+      {receivers.length > 0 && (
+        <PaymentReceiverPicker
+          receivers={receivers}
+          gateway={paymentGateway}
+          onGatewayChange={setPaymentGateway}
+          value={paymentReceiverId}
+          onChange={setPaymentReceiverId}
+          memberBatch={form.batch}
+          transactionId={paymentTransactionId}
+          onTransactionIdChange={setPaymentTransactionId}
+          error={serverErrors.paymentReceiverId}
+          transactionError={serverErrors.paymentTransactionId}
+          gatewayRef={paymentGatewayRef}
+          receiverRef={paymentReceiverRef}
+        />
+      )}
 
       {state.status === 'error' && state.message && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300" role="alert">

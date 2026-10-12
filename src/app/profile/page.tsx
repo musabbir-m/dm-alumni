@@ -4,14 +4,17 @@ import Link from 'next/link';
 import {
   Waves, ArrowLeft, ArrowRight, Mail, Phone, IdCard, GraduationCap,
   Clock, XCircle, ShieldCheck, BadgeCheck, FileText, Pencil, ImagePlus, Lock, Briefcase,
+  CircleDollarSign, Hash,
 } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { batches, batchName } from '@/data/batches';
 import { isLinkedInUrl } from '@/lib/directory';
+import { listPaymentWallets } from '@/lib/payment-wallets';
 import { LinkedinIcon } from '@/components/BrandIcons';
 import ThemeToggle from '@/components/ThemeToggle';
 import LogoutButton from '@/components/LogoutButton';
-import { StatusBadge, ROLE_LABELS } from '@/components/UserBadges';
+import { PaymentReceiverCard } from '@/components/payment-ui';
+import { StatusBadge, PaymentStatusBadge, ROLE_LABELS } from '@/components/UserBadges';
 
 export const metadata: Metadata = {
   title: 'My Profile — DM Alumni Association',
@@ -23,6 +26,12 @@ export default async function ProfilePage() {
 
   const status = user.verificationStatus ?? 'pending';
   const role = user.role ?? 'alumni';
+  // lean() doc — records created before the payment feature read undefined
+  const paymentStatus = user.paymentStatus ?? 'unpaid';
+  const receiverId = user.paymentReceiverId?.toString() ?? '';
+  const transactionId = user.paymentTransactionId ?? '';
+  const receivers = await listPaymentWallets();
+  const receiver = receivers.find((r) => r.id === receiverId) ?? null;
   const batchInfo = batches.find((b) => b.year === user.batch);
   const memberSince = user.createdAt
     ? new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(user.createdAt)
@@ -122,6 +131,7 @@ export default async function ProfilePage() {
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <StatusBadge status={status} />
+                    <PaymentStatusBadge status={paymentStatus} />
                     {role !== 'alumni' && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-ocean-500/20 px-3 py-1 text-xs font-semibold text-ocean-50 ring-1 ring-ocean-300/30">
                         <ShieldCheck className="h-3.5 w-3.5" />
@@ -270,6 +280,44 @@ export default async function ProfilePage() {
                       View
                     </a>
                   )}
+                </div>
+              </div>
+
+              <h2 className="mt-8 font-display text-lg font-bold tracking-tight text-ocean-900 dark:text-white">
+                Membership payment
+              </h2>
+              <div className="mt-4 space-y-3">
+                <div className="flex flex-col gap-3 rounded-xl border border-ocean-100 bg-white/50 px-4 py-3.5 dark:border-ocean-800/60 dark:bg-ocean-950/40">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-2.5 text-sm font-semibold text-ocean-900 dark:text-white">
+                      <CircleDollarSign className="h-4.5 w-4.5 text-ocean-500 dark:text-ocean-300" />
+                      Dues status
+                    </span>
+                    <PaymentStatusBadge status={paymentStatus} />
+                  </div>
+                  {receiver ? (
+                    <PaymentReceiverCard receiver={receiver} />
+                  ) : receiverId ? (
+                    <p className="text-sm leading-relaxed text-ocean-600 dark:text-ocean-200">
+                      Your chosen receiver is no longer available — pick another in Edit profile.
+                    </p>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-ocean-600 dark:text-ocean-200">
+                      No receiver chosen yet — pick one from Edit profile.
+                    </p>
+                  )}
+                  {transactionId && (
+                    <p className="flex items-center gap-1.5 text-xs leading-relaxed text-ocean-600 dark:text-ocean-200">
+                      <Hash className="h-3.5 w-3.5 shrink-0" />
+                      Transaction ID submitted:{' '}
+                      <code className="font-semibold">{transactionId}</code>
+                    </p>
+                  )}
+                  <p className="text-xs leading-relaxed text-ocean-500 dark:text-ocean-300/70">
+                    {paymentStatus === 'paid'
+                      ? 'Payment received — thank you for supporting the association.'
+                      : 'Complete your payment to be verified — pay your membership dues to your chosen receiver and a staff member will confirm it here.'}
+                  </p>
                 </div>
               </div>
 

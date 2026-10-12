@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Waves, ArrowLeft, IdCard, ShieldCheck, Users } from 'lucide-react';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getSessionUser } from '@/lib/auth';
+import { listPaymentWallets } from '@/lib/payment-wallets';
 import CompleteProfileForm from '@/components/CompleteProfileForm';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -46,6 +47,9 @@ export default async function RegisterPage() {
   const cu = await currentUser();
   const clerkEmail = cu?.primaryEmailAddress?.emailAddress ?? '';
   const clerkName = [cu?.firstName, cu?.lastName].filter(Boolean).join(' ');
+  // Payment receivers for the optional dues step — hidden entirely while no
+  // admin has designated any (listPaymentWallets connects its own cached DB).
+  const receivers = await listPaymentWallets();
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
@@ -136,7 +140,11 @@ export default async function RegisterPage() {
 
               {/* Right: form */}
               <div className="relative p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-10 lg:border-l lg:border-t-0 lg:dark:border-l">
-                <CompleteProfileForm clerkName={clerkName} clerkEmail={clerkEmail} />
+                <CompleteProfileForm
+                  clerkName={clerkName}
+                  clerkEmail={clerkEmail}
+                  receivers={receivers}
+                />
               </div>
             </div>
           </div>

@@ -1,10 +1,20 @@
-import Link from 'next/link';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+'use client';
 
-// The right column used to hold a demo form that faked a successful
-// registration — the real (roster-gated) flow lives at /register, so it is
-// just a CTA now. No interactivity left: this renders on the server.
+import { useUser } from '@clerk/nextjs';
+import { CheckCircle2 } from 'lucide-react';
+import { ThemedSignUp } from '@/components/ThemedAuthForms';
+
+// Signed-out visitors get the real Clerk sign-up embedded here (step 1 of the
+// two-step flow — email verification inside, then Clerk's sign-up fallback
+// redirect lands on /register for the alumni details). The card mounts with
+// hash routing since it lives outside the /sign-up catch-all (see
+// ThemedAuthForms). The session resolves client-side via useUser(), same as
+// UserMenu, so the homepage stays a prerendered shell; the form renders in the
+// initial HTML and is unmounted only once Clerk confirms a signed-in user.
 export default function Connect() {
+  const { isLoaded, isSignedIn } = useUser();
+  const signedIn = isLoaded && isSignedIn;
+
   return (
     <section id="connect" className="relative overflow-hidden bg-gradient-to-b from-white via-ocean-50/30 to-ocean-50/40 py-24 dark:from-ocean-900 dark:via-ocean-950 dark:to-ocean-950 sm:py-32">
       <div className="absolute inset-0 bg-dots opacity-30 dark:hidden" />
@@ -14,8 +24,8 @@ export default function Connect() {
       <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
         <div className="overflow-hidden rounded-3xl border border-ocean-200/50 bg-white/60 shadow-2xl shadow-ocean-200/20 backdrop-blur-md reveal dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl">
           <div className="grid lg:grid-cols-2">
-            {/* Left: invitation */}
-            <div className="relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-ocean-700 via-ocean-600 to-reef-600 p-8 dark:from-ocean-900 dark:via-ocean-800 dark:to-reef-900 sm:p-12">
+            {/* Left: invitation (spans the full card once signed in) */}
+            <div className={`relative flex flex-col justify-between overflow-hidden bg-gradient-to-br from-ocean-700 via-ocean-600 to-reef-600 p-8 dark:from-ocean-900 dark:via-ocean-800 dark:to-reef-900 sm:p-12${signedIn ? ' lg:col-span-2' : ''}`}>
               {/* Decorative orbs */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-reef-300/15 blur-[80px] animate-aurora" />
@@ -62,21 +72,14 @@ export default function Connect() {
               </ul>
             </div>
 
-            {/* Right: registration CTA */}
-            <div className="relative flex flex-col items-center justify-center p-8 text-center dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-12 lg:border-l lg:border-t-0 lg:dark:border-l">
-              <Link
-                href="/register"
-                className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-8 py-4 text-sm font-semibold text-white shadow-xl shadow-ocean-300/40 transition-all hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
-              >
-                <span className="relative z-10">Register Now</span>
-                <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              </Link>
-              <p className="mt-4 max-w-xs text-sm text-ocean-600/70 dark:text-ocean-100/70">
-                Registration uses your department Student ID — your batch
-                moderator verifies each new member.
-              </p>
-            </div>
+            {/* Right: Clerk sign-up (only while signed out) */}
+            {!signedIn && (
+              <div className="relative flex items-center justify-center p-8 dark:border-t dark:border-ocean-800/60 dark:bg-ocean-950/40 sm:p-12 lg:border-l lg:border-t-0 lg:dark:border-l">
+                <div className="w-full max-w-sm">
+                  <ThemedSignUp routing="hash" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

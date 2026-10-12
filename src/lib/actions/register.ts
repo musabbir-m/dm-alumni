@@ -1,10 +1,12 @@
 'use server';
 
 import { auth, currentUser } from '@clerk/nextjs/server';
+import { Types } from 'mongoose';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
 import Student from '@/lib/models/Student';
+import PaymentWallet from '@/lib/models/PaymentWallet';
 import { batches } from '@/data/batches';
 import {
   cloudinaryAssetFromUrl,
@@ -20,6 +22,7 @@ import {
   saveUpload,
 } from '@/lib/uploads';
 import { linkedinUrlSchema, professionSchema } from '@/lib/profile-fields';
+import { TRANSACTION_ID_MESSAGE, TRANSACTION_ID_PATTERN } from '@/lib/wallet-fields';
 
 /**
  * Step 2 of registration: the Clerk account (email + password + name) already
@@ -128,6 +131,46 @@ export async function completeProfile(
       };
     }
 
+    // Optional dues receiver — always read (no wallets configured ⇒ no
+    // section ⇒ empty ⇒ unpaid). Validated before any upload so a stale pick
+    // causes no Cloudinary churn; ObjectId.isValid first because a malformed
+    // id would CastError inside exists() into the generic catch.
+    const receiverIdRaw = (formData.get('paymentReceiverId') ?? '').toString().trim();
+    let receiverId: string | null = null;
+    if (receiverIdRaw) {
+      const valid =
+        Types.ObjectId.isValid(receiverIdRaw) &&
+        (await PaymentWallet.exists({ _id: receiverIdRaw }));
+      if (!valid) {
+        return {
+          status: 'error',
+          errors: {
+            paymentReceiverId: 'That payment receiver is no longer available — choose another or skip this step.',
+          },
+        };
+      }
+      receiverId = receiverIdRaw;
+    }
+
+    // TrxID from the payment receipt — only meaningful once a receiver is
+    // chosen; still validated before any upload (same no-churn rule).
+    const transactionIdRaw = (formData.get('paymentTransactionId') ?? '').toString().trim();
+    let transactionId = '';
+    if (transactionIdRaw) {
+      if (!receiverId) {
+        return {
+          status: 'error',
+          errors: {
+            paymentTransactionId: 'Choose a payment receiver before adding a transaction ID.',
+          },
+        };
+      }
+      if (!TRANSACTION_ID_PATTERN.test(transactionIdRaw)) {
+        return { status: 'error', errors: { paymentTransactionId: TRANSACTION_ID_MESSAGE } };
+      }
+      transactionId = transactionIdRaw;
+    }
+
     const existingEmail = await User.findOne({ email }).lean();
     if (existingEmail?.clerkId) {
       // Another Clerk account already claimed the record for this email —
@@ -178,6 +221,9 @@ export async function completeProfile(
             photo: photo.asset ? optimizedImageUrl(photo.asset.secureUrl) : existingEmail.photo,
             docType: doc.asset ? data.docType : existingEmail.docType,
             doc: doc.asset ? doc.asset.secureUrl : existingEmail.doc,
+            paymentReceiverId: receiverId,
+            paymentStatus: receiverId ? 'pending' : 'unpaid',
+            paymentTransactionId: transactionId,
           },
         },
         { new: true }
@@ -198,7 +244,11 @@ export async function completeProfile(
         docType: doc.asset ? data.docType : null,
         doc: doc.asset ? doc.asset.secureUrl : null,
         // role/verificationStatus default to 'alumni'/'pending' — a batch
-        // moderator flips the status after registration.
+        // moderator flips the status after registration. Payment state is
+        // always explicit: unpaid, or pending once a receiver is chosen.
+        paymentReceiverId: receiverId,
+        paymentStatus: receiverId ? 'pending' : 'unpaid',
+        paymentTransactionId: transactionId,
       });
     }
 

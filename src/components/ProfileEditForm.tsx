@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User, Mail, Phone, IdCard, GraduationCap, ImagePlus, Upload, Award,
-  CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft, Briefcase,
+  CreditCard, FileText, ChevronDown, Loader2, CheckCircle2, X, Lock, ArrowLeft, Briefcase, Hash,
 } from 'lucide-react';
 import { LinkedinIcon } from '@/components/BrandIcons';
 import { batches, batchName } from '@/data/batches';
 import { updateProfile } from '@/lib/actions/profile';
 import type { ProfileState } from '@/lib/profile';
+import type { WalletView } from '@/lib/payment-wallets';
+import type { GatewayFilter } from '@/lib/wallet-fields';
+import { PaymentReceiverPicker, PaymentReceiverCard } from '@/components/payment-ui';
+import { PaymentStatusBadge } from '@/components/UserBadges';
 import { Field, iconCls, inputCls, MAX_FILE_MB } from '@/components/form-ui';
 
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
@@ -37,10 +41,22 @@ const formatSize = (bytes: number) =>
 export default function ProfileEditForm({
   initial,
   docLocked = false,
+  receivers = [],
+  initialPaymentReceiverId = '',
+  initialPaymentTransactionId = '',
+  paymentLocked = false,
 }: {
   initial: ProfileEditInitial;
   /** verificationStatus === 'verified' — document (and its type) is immutable */
   docLocked?: boolean;
+  /** Payment receivers the member may designate for their dues */
+  receivers?: WalletView[];
+  /** current receiver id ('' = none chosen) */
+  initialPaymentReceiverId?: string;
+  /** TrxID from the member's payment receipt ('' = none submitted) */
+  initialPaymentTransactionId?: string;
+  /** paymentStatus === 'paid' — receiver choice is locked (staff resets it) */
+  paymentLocked?: boolean;
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ProfileState, FormData>(updateProfile, {
@@ -58,6 +74,17 @@ export default function ProfileEditForm({
   const [objectUrl, setObjectUrl] = useState('');
   const [docType, setDocType] = useState<DocType>(initial.docType);
   const [docFile, setDocFile] = useState<File | null>(null);
+  // Dues receiver — '' means "no choice" (unpaid). Locked (paid) renders no
+  // picker at all, and no hidden input: the server only touches payment when
+  // the field is present in the FormData.
+  const [receiverId, setReceiverId] = useState(initialPaymentReceiverId);
+  // Gateway filter starts on the current receiver's service so the dropdown
+  // opens showing them selected.
+  const [paymentGateway, setPaymentGateway] = useState<GatewayFilter>(
+    () => receivers.find((r) => r.id === initialPaymentReceiverId)?.walletType ?? 'all'
+  );
+  // TrxID from the member's receipt — evidence for the staff confirming
+  const [paymentTransactionId, setPaymentTransactionId] = useState(initialPaymentTransactionId);
   // The native inputs are the source of truth on submit — the form action
   // serializes the DOM, so a file must STAY in its input or it never reaches
   // the server. State is only for preview/validation.
@@ -107,9 +134,15 @@ export default function ProfileEditForm({
   // silently send the first batch and move the member into it (each action
   // return is a fresh state object, so this runs per response).
   const batchRef = useRef<HTMLSelectElement>(null);
+  // The payment selects live inside PaymentReceiverPicker — same auto-reset
+  // exposure, same re-assert fix (refs passed down as plain props).
+  const paymentGatewayRef = useRef<HTMLSelectElement>(null);
+  const paymentReceiverRef = useRef<HTMLSelectElement>(null);
   useEffect(() => {
     if (batchRef.current && form.batch) batchRef.current.value = form.batch;
-  }, [state, form.batch]);
+    if (paymentGatewayRef.current) paymentGatewayRef.current.value = paymentGateway;
+    if (paymentReceiverRef.current) paymentReceiverRef.current.value = receiverId;
+  }, [state, form.batch, paymentGateway, receiverId]);
 
   const handlePhoto = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -161,6 +194,8 @@ export default function ProfileEditForm({
   };
 
   const lockedCls = `${inputCls()} read-only:cursor-not-allowed read-only:opacity-70`;
+  // The receiver staff confirmed payment to — may no longer exist as a wallet
+  const lockedReceiver = receivers.find((r) => r.id === initialPaymentReceiverId);
 
   return (
     <form action={formAction} className="space-y-5" noValidate>
@@ -511,6 +546,46 @@ export default function ProfileEditForm({
           </div>
         )}
       </Field>
+
+      {/* Membership dues — locked once staff confirmed the payment */}
+      {(receivers.length > 0 || paymentLocked) &&
+        (paymentLocked ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-ocean-200 bg-white/40 px-4 py-3.5 dark:border-ocean-800 dark:bg-ocean-950/40">
+              <span className="flex items-center gap-2.5 text-sm font-semibold text-ocean-900 dark:text-white">
+                Membership payment
+              </span>
+              <PaymentStatusBadge status="paid" />
+            </div>
+            {lockedReceiver && <PaymentReceiverCard receiver={lockedReceiver} />}
+            {initialPaymentTransactionId && (
+              <p className="flex items-center gap-1.5 text-xs leading-relaxed text-ocean-600 dark:text-ocean-200">
+                <Hash className="h-3.5 w-3.5 shrink-0" />
+                Transaction ID submitted: <code className="font-semibold">{initialPaymentTransactionId}</code>
+              </p>
+            )}
+            <p className="flex items-center gap-1.5 text-xs leading-relaxed text-ocean-500 dark:text-ocean-300/70">
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              Payment confirmed — your chosen receiver is locked. Ask a staff member to reset it if
+              this needs correcting.
+            </p>
+          </div>
+        ) : (
+          <PaymentReceiverPicker
+            receivers={receivers}
+            gateway={paymentGateway}
+            onGatewayChange={setPaymentGateway}
+            value={receiverId}
+            onChange={setReceiverId}
+            memberBatch={form.batch}
+            transactionId={paymentTransactionId}
+            onTransactionIdChange={setPaymentTransactionId}
+            error={serverErrors.paymentReceiverId}
+            transactionError={serverErrors.paymentTransactionId}
+            gatewayRef={paymentGatewayRef}
+            receiverRef={paymentReceiverRef}
+          />
+        ))}
 
       {state.status === 'error' && state.message && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300" role="alert">

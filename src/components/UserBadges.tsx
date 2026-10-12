@@ -1,5 +1,5 @@
-import { Clock, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
-import type { Role, VerificationStatus } from '@/lib/models/User';
+import { Clock, CheckCircle2, XCircle, ShieldCheck, CircleDollarSign, BadgeCheck } from 'lucide-react';
+import type { Role, VerificationStatus, PaymentStatus } from '@/lib/models/User';
 
 /**
  * Shared badge maps + pills for verification status and role. Server-safe
@@ -35,8 +35,42 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin',
 };
 
+/** Membership-payment pill — member picks a receiver (pending), staff confirm (paid). */
+export const PAYMENT_STYLES: Record<
+  PaymentStatus,
+  { icon: typeof Clock; label: string; cls: string }
+> = {
+  paid: {
+    icon: BadgeCheck,
+    label: 'Paid',
+    cls: 'bg-reef-50 text-reef-700 ring-reef-300 dark:bg-reef-500/10 dark:text-reef-300 dark:ring-reef-500/30',
+  },
+  pending: {
+    icon: Clock,
+    label: 'Payment pending',
+    cls: 'bg-amber-50 text-amber-700 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30',
+  },
+  unpaid: {
+    icon: CircleDollarSign,
+    label: 'Unpaid',
+    cls: 'bg-ocean-50 text-ocean-700 ring-ocean-300/70 dark:bg-ocean-800/60 dark:text-ocean-200 dark:ring-ocean-600/50',
+  },
+};
+
 export function StatusBadge({ status }: { status: VerificationStatus }) {
   const { icon: Icon, label, cls } = STATUS_STYLES[status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${cls}`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  );
+}
+
+export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const { icon: Icon, label, cls } = PAYMENT_STYLES[status];
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${cls}`}

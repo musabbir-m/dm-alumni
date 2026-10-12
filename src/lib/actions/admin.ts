@@ -4,8 +4,8 @@ import { auth } from '@clerk/nextjs/server';
 import { revalidatePath } from 'next/cache';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
-import { setUserRole, setUserVerification } from '@/lib/admin';
-import type { AdminResult, ManagedRole, ManagedStatus } from '@/lib/admin';
+import { setUserRole, setUserVerification, setUserPayment } from '@/lib/admin';
+import type { AdminResult, ManagedRole, ManagedStatus, ManagedPaymentStatus } from '@/lib/admin';
 
 /**
  * Thin auth wrappers around the admin core (src/lib/admin.ts). Resolve the
@@ -58,5 +58,17 @@ export async function updateUserVerificationAction(
     revalidatePath('/admin');
     revalidatePath('/');
   }
+  return result;
+}
+
+export async function updateUserPaymentAction(
+  targetId: string,
+  status: ManagedPaymentStatus
+): Promise<AdminResult> {
+  const resolved = await resolveActorId();
+  if ('status' in resolved) return resolved;
+
+  const result = await setUserPayment(resolved.actorId, targetId, status);
+  if (result.status === 'ok') revalidatePath('/admin');
   return result;
 }

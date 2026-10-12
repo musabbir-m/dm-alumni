@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Waves, ArrowLeft } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
+import { listPaymentWallets } from '@/lib/payment-wallets';
 import ThemeToggle from '@/components/ThemeToggle';
 import ProfileEditForm from '@/components/ProfileEditForm';
 
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function EditProfilePage() {
   const user = await requireUser();
+  const receivers = await listPaymentWallets();
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
@@ -55,6 +57,10 @@ export default async function EditProfilePage() {
           <div className="w-full rounded-3xl border border-ocean-200/50 bg-white/60 p-8 shadow-2xl shadow-ocean-200/20 backdrop-blur-md dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl sm:p-10">
             <ProfileEditForm
               docLocked={user.verificationStatus === 'verified'}
+              receivers={receivers}
+              initialPaymentReceiverId={user.paymentReceiverId?.toString() ?? ''}
+              initialPaymentTransactionId={user.paymentTransactionId ?? ''}
+              paymentLocked={(user.paymentStatus ?? 'unpaid') === 'paid'}
               initial={{
                 name: user.name,
                 email: user.email,

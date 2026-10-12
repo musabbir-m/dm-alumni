@@ -24,7 +24,10 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const EMAIL = `adminvis${Date.now()}+clerk_test@example.com`;
 const PASSWORD = 'TestPass!2026xyz'; // Clerk instance enforces 15+ chars
-const STUDENT_ID = `ADV-${Date.now() % 100000}`;
+// Real roster pair — completeProfile validates (studentId, batch) against
+// the students collection, so fabricated IDs are rejected.
+const STUDENT_ID = '1917001'; // 2019-batch roster ID
+const ACTOR_BATCH = '2019';
 const ACTOR_NAME = 'Ada Minvis';
 // Distinctive enough that a name search matches exactly one member
 const TARGET = {
@@ -125,6 +128,14 @@ async function main() {
   await mongoose.connect(process.env.MONGODB_URI);
   const users = mongoose.connection.collection('users');
 
+  // Self-heal a stale run's roster-pair claim (never touches a real member —
+  // email-guarded, same guard as payment-wallets.cjs)
+  const stale = await users.findOne({ studentId: STUDENT_ID, batch: ACTOR_BATCH, email: /clerk_test/ });
+  if (stale) {
+    await users.deleteOne({ _id: stale._id });
+    log('self-heal: removed stale test user', stale.email);
+  }
+
   await clerkSetup();
   // Dev-browser token via URL param — see .e2e/e2e.cjs for the full rationale
   const dbRes = await fetch(`${FAPI}/v1/dev_browser`, { method: 'POST' });
@@ -195,7 +206,7 @@ async function main() {
   await page.waitForTimeout(1500);
   await page.locator('#phone').fill('+8801712345678');
   await page.locator('#studentId').fill(STUDENT_ID);
-  await page.locator('#batch').selectOption('2019');
+  await page.locator('#batch').selectOption(ACTOR_BATCH);
   await page.setInputFiles('#photo', { name: 'photo.png', mimeType: 'image/png', buffer: PNG });
   await page.setInputFiles('#document', { name: 'doc.pdf', mimeType: 'application/pdf', buffer: PDF });
   await page.getByRole('button', { name: /Complete registration/i }).click();
@@ -236,7 +247,7 @@ async function main() {
   await page.waitForTimeout(1200);
   await shot('adm-admin');
   body = await page.textContent('main');
-  check('/admin: heading', body.includes('Member management'));
+  check('/admin: heading', body.includes('Staff dashboard'));
   check('/admin: target row listed', (await targetRow().count()) === 1);
   check('/admin: own row listed with (you)', (await actorRow().count()) === 1);
   check('/admin: search input present', (await page.locator('input[name="q"]').count()) === 1);

@@ -19,8 +19,18 @@ export function ThemedSignIn() {
   return <SignIn appearance={appearance} />;
 }
 
-export function ThemedSignUp() {
+// `routing="hash"` is required when the card is embedded outside the dedicated
+// /sign-up catch-all (e.g. the homepage Connect card). Clerk's default path
+// routing assumes the component owns /sign-up; mounted elsewhere it throws a
+// configuration error and mis-navigates — the footer "Sign in" link lands back
+// on /sign-up with redirect_url=/sign-in. Hash routing keeps the multi-step
+// flow (email-code entry etc.) on the URL hash and makes that link a real
+// navigation to the configured sign-in URL.
+export function ThemedSignUp({ routing = 'path' }: { routing?: 'path' | 'hash' } = {}) {
   const { theme } = useTheme();
   const appearance = theme === 'dark' ? clerkDarkAppearance : clerkLightAppearance;
+  if (routing === 'hash') {
+    return <SignUp appearance={appearance} routing="hash" />;
+  }
   return <SignUp appearance={appearance} />;
 }

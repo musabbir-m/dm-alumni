@@ -28,7 +28,7 @@ const steps = [
   {
     icon: Users,
     title: 'Complete your profile',
-    desc: 'Student ID, batch, and a photo — then a batch moderator verifies you.',
+    desc: 'Student ID (BSc), batch, and a photo — then a batch moderator verifies you.',
   },
 ];
 

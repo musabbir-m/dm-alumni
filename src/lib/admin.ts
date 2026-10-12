@@ -18,9 +18,11 @@ export type AdminResult = { status: 'ok' } | { status: 'error'; message: string 
 
 const MANAGED_ROLES = ['alumni', 'moderator'] as const;
 const MANAGED_STATUSES = ['verified', 'rejected'] as const;
+const MANAGED_PAYMENT_STATUSES = ['pending', 'paid'] as const;
 
 export type ManagedRole = (typeof MANAGED_ROLES)[number];
 export type ManagedStatus = (typeof MANAGED_STATUSES)[number];
+export type ManagedPaymentStatus = (typeof MANAGED_PAYMENT_STATUSES)[number];
 
 /** Hydrated doc (has .save()) — InferSchemaType alone is the raw shape. */
 type UserDoc = HydratedDocument<UserDocument>;
@@ -120,6 +122,51 @@ export async function setUserVerification(
     return {
       status: 'error',
       message: 'Something went wrong while updating the verification. Please try again.',
+    };
+  }
+}
+
+/** Confirm a member's dues payment (pending → paid) or reset it back to
+ *  pending. Same scoping as verification — admins decide any member, a
+ *  moderator only members of their moderated batch. The member's receiver
+ *  choice is never touched here; a reset simply re-opens confirmation. */
+export async function setUserPayment(
+  actorId: string,
+  targetId: string,
+  status: ManagedPaymentStatus
+): Promise<AdminResult> {
+  if (!MANAGED_PAYMENT_STATUSES.includes(status)) {
+    return { status: 'error', message: 'Invalid payment status.' };
+  }
+
+  try {
+    const loaded = await loadPair(actorId, targetId);
+    if ('status' in loaded) return loaded;
+    const { actor, target } = loaded;
+
+    const canDecide =
+      actor.role === 'admin' ||
+      (actor.role === 'moderator' &&
+        !!actor.moderatorBatch &&
+        actor.moderatorBatch === target.batch);
+    if (!canDecide) {
+      return {
+        status: 'error',
+        message: "Only an admin or the moderator of this member's batch can update payment.",
+      };
+    }
+
+    // Idempotent — a double-click or stale row re-sends the same request
+    if ((target.paymentStatus ?? 'unpaid') === status) return { status: 'ok' };
+
+    target.paymentStatus = status;
+    await target.save();
+    return { status: 'ok' };
+  } catch (err) {
+    console.error('setUserPayment failed:', err);
+    return {
+      status: 'error',
+      message: 'Something went wrong while updating the payment status. Please try again.',
     };
   }
 }
