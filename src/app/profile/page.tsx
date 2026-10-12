@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import type { ComponentType } from 'react';
 import Link from 'next/link';
+
 import {
-  Waves, ArrowLeft, ArrowRight, Mail, Phone, IdCard, GraduationCap,
+  ArrowLeft, ArrowRight, Mail, Phone, IdCard, GraduationCap,
   Clock, XCircle, ShieldCheck, BadgeCheck, FileText, Pencil, ImagePlus, Lock, Briefcase,
   CircleDollarSign, Hash,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ import { isLinkedInUrl } from '@/lib/directory';
 import { listPaymentWallets } from '@/lib/payment-wallets';
 import { LinkedinIcon } from '@/components/BrandIcons';
 import ThemeToggle from '@/components/ThemeToggle';
+import BrandLogo from '@/components/BrandLogo';
 import LogoutButton from '@/components/LogoutButton';
 import { PaymentReceiverCard } from '@/components/payment-ui';
 import { StatusBadge, PaymentStatusBadge, ROLE_LABELS } from '@/components/UserBadges';
@@ -72,19 +74,7 @@ export default async function ProfilePage() {
       <div className="relative z-10 mx-auto flex min-h-screen max-w-4xl flex-col px-5 py-6 sm:px-8">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Waves className="h-5 w-5 text-white" strokeWidth={2.2} />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-base font-bold tracking-tight text-ocean-900 dark:text-white">
-                DM Alumni
-              </span>
-              <span className="text-[11px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
-                Disaster Management
-              </span>
-            </span>
-          </Link>
+          <BrandLogo />
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <Link
@@ -131,7 +121,14 @@ export default async function ProfilePage() {
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <StatusBadge status={status} />
-                    <PaymentStatusBadge status={paymentStatus} />
+                    {/* Both badges can read "Pending" — the caption + banknote
+                        icon keep verification and dues distinguishable. */}
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-ocean-100/70">
+                        Dues
+                      </span>
+                      <PaymentStatusBadge status={paymentStatus} />
+                    </span>
                     {role !== 'alumni' && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-ocean-500/20 px-3 py-1 text-xs font-semibold text-ocean-50 ring-1 ring-ocean-300/30">
                         <ShieldCheck className="h-3.5 w-3.5" />

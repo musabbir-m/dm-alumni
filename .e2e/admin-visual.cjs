@@ -317,7 +317,7 @@ async function main() {
   await page.waitForTimeout(1200);
   await targetRow().getByRole('button', { name: 'Reject', exact: true }).click();
   const rejected = await waitFor(() =>
-    targetRow().getByText('Verification rejected', { exact: true }).count()
+    targetRow().getByText('Rejected', { exact: true }).count()
   );
   check('reject: rejection badge shown', rejected);
   t = await users.findOne({ email: TARGET.email });

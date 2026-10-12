@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Waves, ArrowLeft, Search, ChevronDown, Users, Clock, CheckCircle2, XCircle, ShieldCheck,
+  ArrowLeft, Search, ChevronDown, Users, Clock, CheckCircle2, XCircle, ShieldCheck,
 } from 'lucide-react';
 import { requireStaff } from '@/lib/auth';
 import User, { VERIFICATION_STATUSES } from '@/lib/models/User';
@@ -10,6 +10,7 @@ import type { Role, VerificationStatus, PaymentStatus } from '@/lib/models/User'
 import { batches, batchName } from '@/data/batches';
 import { listPaymentWallets } from '@/lib/payment-wallets';
 import ThemeToggle from '@/components/ThemeToggle';
+import BrandLogo from '@/components/BrandLogo';
 import AdminTabs from '@/components/AdminTabs';
 import AdminUserControls from '@/components/AdminUserControls';
 import AddPaymentWalletForm from '@/components/AddPaymentWalletForm';
@@ -23,15 +24,18 @@ export const metadata: Metadata = {
 };
 
 /** Shared grid template for the list header and every row — identity details
- *  (email, student ID, batch, phone, role) fold into the Member cell so the
- *  badges and actions get room instead of seven crushed columns. */
-const ROW_COLS = 'md:grid-cols-[minmax(0,2.6fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,auto)]';
+ *  (email, student ID, batch, phone, role) fold into the Member cell, and the
+ *  badge/action tracks are FIXED width so every row's pills line up in clean
+ *  columns. A content-sized Actions track let four buttons on one line eat
+ *  ~400px and squeezed the badges into wrapping ovals; at 14.5rem the buttons
+ *  wrap to two tidy lines instead. Below lg everything stacks with labels. */
+const ROW_COLS = 'lg:grid-cols-[minmax(0,1fr)_7rem_7.5rem_14.5rem]';
 
-/** List cell — stacks with a tiny uppercase label on mobile, plain on md+. */
+/** List cell — stacks with a tiny uppercase label below lg, plain on lg+. */
 function Cell({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className={`min-w-0 ${className}`}>
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-ocean-400 dark:text-ocean-300/50 md:hidden">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-ocean-400 dark:text-ocean-300/50 lg:hidden">
         {label}
       </span>
       {children}
@@ -243,7 +247,7 @@ export default async function AdminPage({
       {rows.length > 0 ? (
         <div className="mt-3 overflow-hidden rounded-2xl border border-ocean-100 bg-white/50 dark:border-ocean-800/60 dark:bg-ocean-950/40">
           <div
-            className={`hidden border-b border-ocean-100 px-6 py-3 md:grid md:items-center md:gap-4 dark:border-ocean-800/60 ${ROW_COLS}`}
+            className={`hidden border-b border-ocean-100 px-6 py-3 lg:grid lg:items-center lg:gap-4 dark:border-ocean-800/60 ${ROW_COLS}`}
           >
             {['Member', 'Status', 'Payment'].map((h) => (
               <span
@@ -253,7 +257,7 @@ export default async function AdminPage({
                 {h}
               </span>
             ))}
-            <span className="text-right text-xs font-medium uppercase tracking-wide text-ocean-400 dark:text-ocean-300/60">
+            <span className="text-xs font-medium uppercase tracking-wide text-ocean-400 dark:text-ocean-300/60">
               Actions
             </span>
           </div>
@@ -263,7 +267,7 @@ export default async function AdminPage({
               return (
                 <li
                   key={u.id}
-                  className={`grid grid-cols-1 gap-3 px-6 py-4 md:items-center md:gap-4 ${ROW_COLS}`}
+                  className={`grid grid-cols-1 gap-3 px-6 py-4 lg:items-center lg:gap-4 ${ROW_COLS}`}
                 >
                   <Cell label="Member">
                     <div className="flex min-w-0 items-center gap-3">
@@ -321,7 +325,7 @@ export default async function AdminPage({
                     )}
                   </Cell>
 
-                  <Cell label="Actions" className="md:justify-self-end">
+                  <Cell label="Actions">
                     {u.isSelf || u.role === 'admin' ? (
                       <span className="text-xs text-ocean-400 dark:text-ocean-300/50">
                         {u.isSelf ? 'You' : 'Admin'}
@@ -376,19 +380,7 @@ export default async function AdminPage({
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Waves className="h-5 w-5 text-white" strokeWidth={2.2} />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-base font-bold tracking-tight text-ocean-900 dark:text-white">
-                DM Alumni
-              </span>
-              <span className="text-[11px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
-                Disaster Management
-              </span>
-            </span>
-          </Link>
+          <BrandLogo />
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <Link

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Waves, ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Users } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { batches, batchName } from '@/data/batches';
 import { getVerifiedBatchAlumni } from '@/lib/directory';
 import ThemeToggle from '@/components/ThemeToggle';
+import BrandLogo from '@/components/BrandLogo';
 import AlumniDirectory from '@/components/AlumniDirectory';
 
 /**
@@ -55,19 +56,7 @@ export default async function BatchAlumniPage({
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Waves className="h-5 w-5 text-white" strokeWidth={2.2} />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-base font-bold tracking-tight text-ocean-900 dark:text-white">
-                DM Alumni
-              </span>
-              <span className="text-[11px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
-                Disaster Management
-              </span>
-            </span>
-          </Link>
+          <BrandLogo />
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <Link

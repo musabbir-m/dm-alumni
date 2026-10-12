@@ -195,7 +195,7 @@ export default function CompleteProfileForm({
       </div>
 
       {/* Locked identity — from the Clerk account created in step 1 */}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field id="clerkEmail" label="Email">
           <div className="group relative">
             <Mail className={iconCls()} />
@@ -229,7 +229,7 @@ export default function CompleteProfileForm({
       </div>
 
       {/* Phone + Student ID */}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field id="phone" label="Phone" error={serverErrors.phone}>
           <div className="group relative">
             <Phone className={iconCls(!!serverErrors.phone)} />
@@ -290,7 +290,7 @@ export default function CompleteProfileForm({
       </Field>
 
       {/* Profession + LinkedIn — optional, shown on the batch directory card */}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field id="profession" label="Profession" optional error={serverErrors.profession}>
           <div className="group relative">
             <Briefcase className={iconCls(!!serverErrors.profession)} />

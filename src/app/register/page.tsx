@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Waves, ArrowLeft, IdCard, ShieldCheck, Users } from 'lucide-react';
+import { ArrowLeft, IdCard, ShieldCheck, Users } from 'lucide-react';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { getSessionUser } from '@/lib/auth';
 import { listPaymentWallets } from '@/lib/payment-wallets';
 import CompleteProfileForm from '@/components/CompleteProfileForm';
 import ThemeToggle from '@/components/ThemeToggle';
+import BrandLogo from '@/components/BrandLogo';
 
 export const metadata: Metadata = {
   title: 'Complete your profile — DM Alumni Association',
@@ -63,19 +64,7 @@ export default async function RegisterPage() {
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="group flex items-center gap-2.5">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-ocean-500 to-reef-500 shadow-lg shadow-ocean-400/40 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Waves className="h-5 w-5 text-white" strokeWidth={2.2} />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="font-display text-base font-bold tracking-tight text-ocean-900 dark:text-white">
-                DM Alumni
-              </span>
-              <span className="text-[11px] font-medium tracking-wide text-ocean-500 dark:text-ocean-300">
-                Disaster Management
-              </span>
-            </span>
-          </Link>
+          <BrandLogo />
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <Link
@@ -91,7 +80,11 @@ export default async function RegisterPage() {
         {/* Card */}
         <div className="flex flex-1 items-center justify-center py-10">
           <div className="w-full overflow-hidden rounded-3xl border border-ocean-200/50 bg-white/60 shadow-2xl shadow-ocean-200/20 backdrop-blur-md dark:border-ocean-800/60 dark:bg-gradient-to-br dark:from-ocean-900/80 dark:to-ocean-950/80 dark:shadow-ocean-950/40 dark:backdrop-blur-xl">
-            <div className="grid lg:grid-cols-[2fr_3fr]">
+            {/* grid-cols-1 = minmax(0,1fr) at every width: a bare `grid` sizes
+                its implicit track to the content, which blew both panels past
+                the card on phones (form clipped at the right edge). Explicit
+                tracks shrink with the card instead. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
               {/* Left: brand + steps */}
               <div className="relative flex flex-col overflow-hidden bg-gradient-to-br from-ocean-700 via-ocean-600 to-reef-600 p-8 dark:from-ocean-900 dark:via-ocean-800 dark:to-reef-900 sm:p-10 lg:p-12">
                 {/* Decorative orbs */}

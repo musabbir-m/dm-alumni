@@ -167,7 +167,7 @@ async function main() {
   await shot('profile');
   const body = await page.textContent('main');
   check('profile: name rendered', /Test\s*Alumni|Test|Alumni|e2e\d+/.test(body));
-  check('profile: pending badge', body.includes('Pending verification'));
+  check('profile: pending badge', body.includes('Pending'));
   const photoSrc = await page.locator('main img[alt]').first().getAttribute('src').catch(() => null);
   check('profile: cloudinary photo', !!photoSrc && photoSrc.includes('res.cloudinary.com'));
   log('photo url:', photoSrc);

@@ -209,3 +209,18 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   transition: width 0.1s ease-out;
   box-shadow: 0 0 10px rgba(18, 168, 223, 0.6);
 }
+
+/* Clerk prebuilt cards (light-DOM overrides — /sign-in, /sign-up, Connect).
+   clerk-js sizes its card chain from the viewport (≈ min(400px, 100vw - 40px))
+   rather than from its container; the aurora shell adds its own gutters
+   (page px-5 + card-pane p-8 per side), so on phones the card is wider than
+   its pane and clips at the card edge. Capping the chain at 100% lets the
+   card track its pane — clerk's internals are fluid below 400px, so the
+   desktop look is unchanged. !important because clerk-js injects and mutates
+   its own rules at runtime, and a plain rule here can lose that cascade
+   race; theming via appearance variables doesn't cover width. */
+.cl-rootBox,
+.cl-cardBox,
+.cl-card {
+  max-width: 100% !important;
+}

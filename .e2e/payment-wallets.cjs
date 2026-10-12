@@ -30,7 +30,7 @@
  *     option label) → pick → save WITHOUT a TrxID → Mongo shows receiverId
  *     set but paymentStatus UNPAID; then the TrxID is filled and saved →
  *     pending + paymentTransactionId persisted
- *   - /profile shows the Payment pending badge + receiver card + the TrxID
+ *   - /profile shows the Pending dues badge + receiver card + the TrxID
  *   - /admin: unpaid rows show no payment buttons; target row (receiver +
  *     TrxID set via Mongo, pending) shows Mark paid but no Reset → Mark paid
  *     flips the badge and the doc to paid → Reset payment returns both to
@@ -614,13 +614,15 @@ async function main() {
   // /profile: badge + receiver card with the wallet number + the TrxID
   await goto('/profile');
   await page.waitForTimeout(1000);
+  // Admin actor is verified + dues pending: exactly two exact-"Pending" badges
+  // (the header's Dues badge and the Membership-payment section's Dues badge).
   check(
-    'profile: Payment pending badge + receiver card',
+    'profile: Pending dues badge + receiver card',
     await waitFor(() =>
       page
-        .getByText('Payment pending')
+        .getByText('Pending', { exact: true })
         .count()
-        .then((n) => n >= 1)
+        .then((n) => n === 2)
     ) &&
       (await page.getByText(WALLET_NUM_FIX).count()) >= 1 &&
       (await page.locator('a[href^="tel:"]').count()) >= 1
@@ -631,13 +633,15 @@ async function main() {
       (await page.getByText(TRX_EDIT).count()) >= 1
   );
 
-  // /admin: Mark paid → Paid → Reset payment → Payment pending
+  // /admin: Mark paid → Paid → Reset payment → Pending. The target's
+  // verification is ALSO pending, so the row carries two exact-"Pending"
+  // badges (Status column + Payment column) until payment flips to Paid.
   await goto('/admin');
   await page.waitForTimeout(1500);
   const targetRow = page.locator('li', { hasText: TARGET.name });
   check(
-    'admin: target row shows Payment pending badge',
-    await waitFor(() => targetRow.getByText('Payment pending').count().then((n) => n === 1))
+    'admin: target row shows both Pending badges (verification + dues)',
+    await waitFor(() => targetRow.getByText('Pending', { exact: true }).count().then((n) => n === 2))
   );
   check(
     'admin: target row shows the TrxID evidence',
@@ -658,8 +662,8 @@ async function main() {
   );
   await targetRow.getByRole('button', { name: 'Reset payment' }).click();
   check(
-    'admin: reset payment returns to Payment pending',
-    await waitFor(() => targetRow.getByText('Payment pending').count().then((n) => n === 1))
+    'admin: reset payment returns the dues badge to Pending',
+    await waitFor(() => targetRow.getByText('Pending', { exact: true }).count().then((n) => n === 2))
   );
   check(
     'mongo: target back to pending',

@@ -95,7 +95,7 @@ export function PaymentReceiverPicker({
           : 'Pick your batch above, then choose the receiver you’ll pay your membership dues to. You can also skip this for now.'}
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field id="payment-gateway" label="Payment gateway">
           <div className="group relative">
             <select
