@@ -157,9 +157,12 @@ export async function applyProfileUpdate(
 
     await user.save();
 
-    // Only now that the record points at the new URLs, delete the replaced
-    // assets. Legacy non-Cloudinary paths are skipped by cloudinaryAssetFromUrl.
-    const replaced = [oldPhotoUrl, oldDocUrl]
+    // Only now that the record points at the new URLs, delete the assets this
+    // save actually REPLACED — a text/doc-only edit must keep the stored photo
+    // (and vice versa), or the record keeps a URL whose backing asset is gone.
+    // Registration's legacy branch pairs uploads with replacements the same
+    // way. Legacy non-Cloudinary paths are skipped by cloudinaryAssetFromUrl.
+    const replaced = [photo.asset ? oldPhotoUrl : '', doc.asset ? oldDocUrl : '']
       .map(cloudinaryAssetFromUrl)
       .filter((asset): asset is CloudinaryAsset => asset !== null);
     if (replaced.length) await Promise.all(replaced.map(destroyCloudinaryAsset));
