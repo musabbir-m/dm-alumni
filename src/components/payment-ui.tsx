@@ -168,9 +168,18 @@ export function PaymentReceiverPicker({
   );
 }
 
-/** Read-only receiver summary — the member's profile and the locked edit
- *  variant (once payment is confirmed, the choice is staff-controlled). */
-export function PaymentReceiverCard({ receiver }: { receiver: WalletView }) {
+/** Read-only receiver summary — the member's profile, the locked edit variant
+ *  (once payment is confirmed, the choice is staff-controlled) and the admin
+ *  members-list info modal. Only the display fields are required: a full
+ *  WalletView satisfies this, and the admin modal passes a lean snapshot. */
+export function PaymentReceiverCard({
+  receiver,
+}: {
+  receiver: Pick<
+    WalletView,
+    'name' | 'studentId' | 'batch' | 'photo' | 'walletType' | 'walletNumber'
+  >;
+}) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-reef-300/70 bg-reef-50/70 p-3 dark:border-reef-500/40 dark:bg-reef-500/10">
       <PersonAvatar
@@ -182,7 +191,10 @@ export function PaymentReceiverCard({ receiver }: { receiver: WalletView }) {
         <p className="truncate text-sm font-semibold text-ocean-900 dark:text-white">
           {receiver.name}
         </p>
-        <p className="truncate text-xs text-ocean-500 dark:text-ocean-300/70">
+        <p
+          className="truncate text-xs text-ocean-500 dark:text-ocean-300/70"
+          title={`${batchLabelOf(receiver.batch)} · ${receiver.studentId}`}
+        >
           {batchLabelOf(receiver.batch)} · {receiver.studentId}
         </p>
       </div>

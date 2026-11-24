@@ -77,6 +77,8 @@ const config = {
         'marquee': 'marquee 30s linear infinite',
         'glow-pulse': 'glowPulse 3s ease-in-out infinite',
         'spin-slow': 'spin 20s linear infinite',
+        'modal-in': 'modalIn 0.18s ease-out forwards',
+        'modal-fade': 'modalFade 0.18s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -90,6 +92,15 @@ const config = {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-12px)' },
+        },
+        // Dialog pair — the overlay fades while the card rises into place
+        modalIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        modalFade: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-1000px 0' },

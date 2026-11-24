@@ -35,6 +35,9 @@
  *     TrxID set via Mongo, pending) shows Mark paid but no Reset → Mark paid
  *     flips the badge and the doc to paid → Reset payment returns both to
  *     pending
+ *   - payment-details info button: absent before a receiver is chosen; on
+ *     receiver rows it opens a short modal (receiver name + wallet number +
+ *     gateway badge + status + TrxID), Escape and backdrop-click close it
  * Actor 2 signs up + registers (1417003/2014) picking Zephyr as receiver
  * with a TrxID at /register (pending + TrxID in Mongo), then is promoted to
  * moderator (moderatorBatch 2017) — /admin shows ONLY the Members tab.
@@ -371,6 +374,14 @@ async function main() {
     'admin: unpaid row hides Mark paid',
     (await page.locator('li', { hasText: TARGET.name }).getByRole('button', { name: 'Mark paid' }).count()) === 0
   );
+  // No receiver chosen yet — nothing for the payment-details modal to show
+  check(
+    'admin: no-receiver row hides the payment info button',
+    (await page
+      .locator('li', { hasText: TARGET.name })
+      .getByRole('button', { name: `Payment details for ${TARGET.name}` })
+      .count()) === 0
+  );
 
   // Wallets tab — empty state on a pristine DB; on a live DB the real
   // receivers are listed instead (never assert their names, they're real data)
@@ -647,6 +658,62 @@ async function main() {
     'admin: target row shows the TrxID evidence',
     (await targetRow.getByText(`TrxID ${TRX_TARGET}`).count()) === 1
   );
+
+  // Payment-details modal — the receiver identity behind the info button.
+  // The modal portals to document.body (outside the row), so locate by role.
+  const infoBtn = targetRow.getByRole('button', {
+    name: `Payment details for ${TARGET.name}`,
+  });
+  check('admin: receiver row shows the payment info button', (await infoBtn.count()) === 1);
+  await infoBtn.click();
+  const dialog = page.getByRole('dialog');
+  check(
+    'modal: receiver name + wallet number + gateway badge',
+    (await waitFor(() => dialog.count().then((n) => n === 1))) &&
+      (await dialog.getByText(TARGET.name).count()) >= 1 &&
+      (await dialog.getByText(WALLET_NUM_FIX, { exact: true }).count()) === 1 &&
+      (await dialog.getByText('Nagad', { exact: true }).count()) === 1
+  );
+  check(
+    'modal: status badge + submitted TrxID',
+    (await dialog.getByText('Pending', { exact: true }).count()) === 1 &&
+      (await dialog.getByText(TRX_TARGET).count()) === 1
+  );
+  // Screenshots must capture the settled modal: dialog.count() flips the instant
+  // the portal mounts, while the 180ms entrance animation is still at opacity 0
+  // — an immediate screenshot renders a ghost (probe-verified).
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(OUT, 'payment-modal-light.png') });
+  await page.keyboard.press('Escape');
+  check('modal: Escape closes', await waitFor(() => dialog.count().then((n) => n === 0)));
+  // Reopen, then close via the backdrop (a corner click lands on the overlay)
+  await targetRow
+    .getByRole('button', { name: `Payment details for ${TARGET.name}` })
+    .click();
+  check('modal: reopens', await waitFor(() => dialog.count().then((n) => n === 1)));
+  await page.mouse.click(24, 24);
+  check('modal: backdrop click closes', await waitFor(() => dialog.count().then((n) => n === 0)));
+  // Dark-mode pass — emulateMedia persists across the reload, and the inline
+  // theme script applies the (dark) OS preference before first paint.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForTimeout(1500);
+  await page
+    .locator('li', { hasText: TARGET.name })
+    .getByRole('button', { name: `Payment details for ${TARGET.name}` })
+    .click();
+  check('modal: reopens in dark mode', await waitFor(() => dialog.count().then((n) => n === 1)));
+  await page.waitForTimeout(400); // entrance animation settle (see above)
+  await page.screenshot({ path: path.join(OUT, 'payment-modal-dark.png') });
+  // Phone-width pass — the dialog docks to the bottom (items-end below sm)
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(OUT, 'payment-modal-mobile.png') });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+  await page.waitForTimeout(1500);
   check(
     'admin: pending row hides Reset payment',
     (await targetRow.getByRole('button', { name: 'Reset payment' }).count()) === 0
@@ -698,6 +765,15 @@ async function main() {
   check(
     'moderator: member list still renders',
     (await mod.page.locator('li', { hasText: TARGET.name }).count()) === 1
+  );
+  // Read-only payment info rides along for moderators (they confirm dues for
+  // their own batch — receiver identity is context, wallet management isn't)
+  check(
+    'moderator: payment info button visible (read-only receiver info)',
+    (await mod.page
+      .locator('li', { hasText: TARGET.name })
+      .getByRole('button', { name: `Payment details for ${TARGET.name}` })
+      .count()) === 1
   );
 
   check('zero page errors across both contexts', errors.length === 0);

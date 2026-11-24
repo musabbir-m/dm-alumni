@@ -7,12 +7,16 @@ import {
 import { requireStaff } from '@/lib/auth';
 import User, { VERIFICATION_STATUSES } from '@/lib/models/User';
 import type { Role, VerificationStatus, PaymentStatus } from '@/lib/models/User';
+import PaymentWallet from '@/lib/models/PaymentWallet';
+import type { WalletType } from '@/lib/wallet-fields';
 import { batches, batchName } from '@/data/batches';
 import { listPaymentWallets } from '@/lib/payment-wallets';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
 import AdminTabs from '@/components/AdminTabs';
 import AdminUserControls from '@/components/AdminUserControls';
+import PaymentInfoButton from '@/components/PaymentInfoButton';
+import type { PaymentReceiverInfo } from '@/components/PaymentInfoButton';
 import AddPaymentWalletForm from '@/components/AddPaymentWalletForm';
 import PaymentWalletsPanel from '@/components/PaymentWalletsPanel';
 import { StatusBadge, RoleBadge, PaymentStatusBadge, STATUS_STYLES } from '@/components/UserBadges';
@@ -29,7 +33,7 @@ export const metadata: Metadata = {
  *  columns. A content-sized Actions track let four buttons on one line eat
  *  ~400px and squeezed the badges into wrapping ovals; at 14.5rem the buttons
  *  wrap to two tidy lines instead. Below lg everything stacks with labels. */
-const ROW_COLS = 'lg:grid-cols-[minmax(0,1fr)_7rem_7.5rem_14.5rem]';
+const ROW_COLS = 'lg:grid-cols-[minmax(0,1fr)_7rem_8rem_14.5rem]';
 
 /** List cell — stacks with a tiny uppercase label below lg, plain on lg+. */
 function Cell({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
@@ -58,6 +62,9 @@ type AdminUserView = {
   payment: PaymentStatus;
   /** TrxID the member submitted as payment evidence ('' = none) */
   paymentTrx: string;
+  /** Receiver this member pays their dues to (null when none chosen) —
+   *  unresolved ids (wallet deleted out-of-band) also land on null */
+  receiver: PaymentReceiverInfo | null;
   photo: string | null;
   initials: string;
   isSelf: boolean;
@@ -108,6 +115,34 @@ export default async function AdminPage({
     viewerIsAdmin ? listPaymentWallets() : Promise.resolve([]),
   ]);
 
+  // Receiver snapshots for the rows that picked one — the Payment column's
+  // info button opens them in a short modal. Wallet MANAGEMENT stays
+  // admin-only (the tabs below), but moderators confirm dues for their own
+  // batch, so the read-only receiver identity resolves for every staff
+  // viewer. A targeted $in query, not listPaymentWallets — only the
+  // receivers these filtered rows actually reference.
+  const receiverIds = [
+    ...new Set(
+      users.flatMap((u) => (u.paymentReceiverId ? [u.paymentReceiverId.toString()] : []))
+    ),
+  ];
+  const receiverWallets = receiverIds.length
+    ? await PaymentWallet.find({ _id: { $in: receiverIds } }).lean()
+    : [];
+  const receiverById = new Map<string, PaymentReceiverInfo>(
+    receiverWallets.map((w) => [
+      w._id.toString(),
+      {
+        name: w.name,
+        studentId: w.studentId,
+        batch: w.batch,
+        photo: w.photo ?? '',
+        walletType: w.walletType as WalletType,
+        walletNumber: w.walletNumber,
+      },
+    ])
+  );
+
   const rows: AdminUserView[] = users.map((u) => ({
     id: u._id.toString(),
     name: u.name,
@@ -119,6 +154,9 @@ export default async function AdminPage({
     status: (u.verificationStatus ?? 'pending') as VerificationStatus,
     payment: (u.paymentStatus ?? 'unpaid') as PaymentStatus,
     paymentTrx: u.paymentTransactionId ?? '',
+    receiver: u.paymentReceiverId
+      ? (receiverById.get(u.paymentReceiverId.toString()) ?? null)
+      : null,
     photo: u.photo ?? null,
     initials: u.name
       .split(/\s+/)
@@ -314,7 +352,17 @@ export default async function AdminPage({
                   </Cell>
 
                   <Cell label="Payment">
-                    <PaymentStatusBadge status={u.payment} />
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <PaymentStatusBadge status={u.payment} />
+                      {u.receiver && (
+                        <PaymentInfoButton
+                          memberName={u.name}
+                          status={u.payment}
+                          receiver={u.receiver}
+                          trxId={u.paymentTrx}
+                        />
+                      )}
+                    </div>
                     {u.paymentTrx && (
                       <p
                         className="mt-1 truncate font-mono text-[10px] font-medium text-ocean-400 dark:text-ocean-300/60"
