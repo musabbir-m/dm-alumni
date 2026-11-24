@@ -2,27 +2,33 @@
 
 import { useId, useState, type ReactNode } from 'react';
 
-export type AdminTabKey = 'members' | 'wallets' | 'add';
+export type AdminTabKey = 'members' | 'payments' | 'wallets' | 'add';
 
 /**
  * Client-side tab switcher for the staff dashboard. The tab panels arrive as
  * server-rendered props (RSC composition — the page renders them, this
  * component only decides which is mounted), so switching tabs costs no server
- * roundtrip and no route change. Wallet tabs render for admins only;
- * moderators just see Members. Wallet mutations revalidatePath('/admin'),
+ * roundtrip and no route change. Members and Payments render for every staff
+ * viewer (the Payments overview is read-only, like the rows' payment info);
+ * the wallet tabs render for admins only. Wallet mutations revalidatePath('/admin'),
  * which re-renders the page — panel props refresh while `activeTab` state
  * survives, so the list the admin lands on after an add/edit is always fresh.
  */
 export default function AdminTabs({
   isAdmin,
   walletsCount,
+  paymentsPending,
   members,
+  payments,
   wallets,
   addWallet,
 }: {
   isAdmin: boolean;
   walletsCount: number;
+  /** Members whose dues await confirmation — the Payments tab's badge (hidden at 0) */
+  paymentsPending: number;
   members: ReactNode;
+  payments: ReactNode;
   wallets: ReactNode;
   addWallet: ReactNode;
 }) {
@@ -31,6 +37,11 @@ export default function AdminTabs({
 
   const tabs: { key: AdminTabKey; label: string; count?: number }[] = [
     { key: 'members', label: 'Members' },
+    {
+      key: 'payments',
+      label: 'Payments',
+      count: paymentsPending > 0 ? paymentsPending : undefined,
+    },
     ...(isAdmin
       ? [
           { key: 'wallets' as const, label: 'Payment Wallets', count: walletsCount },
@@ -82,6 +93,7 @@ export default function AdminTabs({
 
       <div role="tabpanel" id={`${id}-panel-${activeTab}`} aria-labelledby={`${id}-tab-${activeTab}`} className="pt-6">
         {activeTab === 'members' && members}
+        {activeTab === 'payments' && payments}
         {activeTab === 'wallets' && wallets}
         {activeTab === 'add' && addWallet}
       </div>

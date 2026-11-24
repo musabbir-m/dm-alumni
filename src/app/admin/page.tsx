@@ -17,6 +17,8 @@ import AdminTabs from '@/components/AdminTabs';
 import AdminUserControls from '@/components/AdminUserControls';
 import PaymentInfoButton from '@/components/PaymentInfoButton';
 import type { PaymentReceiverInfo } from '@/components/PaymentInfoButton';
+import PaymentsPanel from '@/components/PaymentsPanel';
+import type { PaymentsGroup, PaymentsMember } from '@/components/PaymentsPanel';
 import AddPaymentWalletForm from '@/components/AddPaymentWalletForm';
 import PaymentWalletsPanel from '@/components/PaymentWalletsPanel';
 import { StatusBadge, RoleBadge, PaymentStatusBadge, STATUS_STYLES } from '@/components/UserBadges';
@@ -49,6 +51,9 @@ function Cell({ label, children, className = '' }: { label: string; children: Re
 
 // $regex needs manual escaping — the search box is free-form user input
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Member order inside a Payments group — the confirmation queue first. */
+const PAYMENT_STATUS_ORDER: Record<PaymentStatus, number> = { pending: 0, paid: 1, unpaid: 2 };
 
 type AdminUserView = {
   id: string;
@@ -104,8 +109,21 @@ export default async function AdminPage({
 
   // Counts ignore the filters — the tiles are a global overview; the list is
   // the filtered working set. Newest first = the review queue's natural order.
-  // Payment wallets are admin-only — moderators never query them.
-  const [users, total, pending, verified, rejected, moderators, wallets] = await Promise.all([
+  // Wallet MANAGEMENT (listPaymentWallets — the two wallet tabs) is
+  // admin-only; the receiver roster below is a read-only identity query every
+  // staff viewer gets, since moderators confirm dues too (the Payments tab +
+  // the rows' info buttons) — they just can't edit wallets.
+  const [
+    users,
+    total,
+    pending,
+    verified,
+    rejected,
+    moderators,
+    wallets,
+    receiverDocs,
+    payingUsers,
+  ] = await Promise.all([
     User.find(filter).sort({ createdAt: -1 }).lean(),
     User.countDocuments({}),
     User.countDocuments({ verificationStatus: 'pending' }),
@@ -113,24 +131,16 @@ export default async function AdminPage({
     User.countDocuments({ verificationStatus: 'rejected' }),
     User.countDocuments({ role: 'moderator' }),
     viewerIsAdmin ? listPaymentWallets() : Promise.resolve([]),
+    PaymentWallet.find().sort({ batch: 1, name: 1 }).lean(),
+    User.find({ paymentReceiverId: { $ne: null } }).lean(),
   ]);
 
   // Receiver snapshots for the rows that picked one — the Payment column's
-  // info button opens them in a short modal. Wallet MANAGEMENT stays
-  // admin-only (the tabs below), but moderators confirm dues for their own
-  // batch, so the read-only receiver identity resolves for every staff
-  // viewer. A targeted $in query, not listPaymentWallets — only the
-  // receivers these filtered rows actually reference.
-  const receiverIds = [
-    ...new Set(
-      users.flatMap((u) => (u.paymentReceiverId ? [u.paymentReceiverId.toString()] : []))
-    ),
-  ];
-  const receiverWallets = receiverIds.length
-    ? await PaymentWallet.find({ _id: { $in: receiverIds } }).lean()
-    : [];
+  // info button opens them in a short modal. Built from the full receiver
+  // roster (receiverDocs, batch-then-name): every wallet the filtered rows
+  // can reference is in it, and the same roster drives the Payments tab.
   const receiverById = new Map<string, PaymentReceiverInfo>(
-    receiverWallets.map((w) => [
+    receiverDocs.map((w) => [
       w._id.toString(),
       {
         name: w.name,
@@ -142,6 +152,54 @@ export default async function AdminPage({
       },
     ])
   );
+
+  // ---- Payments tab data: every receiver with the members paying them ----
+  const membersByReceiver = new Map<string, PaymentsMember[]>();
+  for (const u of payingUsers) {
+    const key = u.paymentReceiverId?.toString();
+    if (!key) continue;
+    const member: PaymentsMember = {
+      id: u._id.toString(),
+      name: u.name,
+      email: u.email,
+      studentId: u.studentId,
+      batch: u.batch,
+      photo: u.photo ?? '',
+      payment: (u.paymentStatus ?? 'unpaid') as PaymentStatus,
+      trxId: u.paymentTransactionId ?? '',
+    };
+    const list = membersByReceiver.get(key);
+    if (list) list.push(member);
+    else membersByReceiver.set(key, [member]);
+  }
+  const paymentsGroups: PaymentsGroup[] = receiverDocs.map((w) => ({
+    receiver: {
+      id: w._id.toString(),
+      name: w.name,
+      studentId: w.studentId,
+      batch: w.batch,
+      photo: w.photo ?? '',
+      walletType: w.walletType as WalletType,
+      walletNumber: w.walletNumber,
+    },
+    // Pending first (the queue), then paid, then unpaid; name breaks ties
+    members: (membersByReceiver.get(w._id.toString()) ?? []).sort(
+      (a, b) =>
+        PAYMENT_STATUS_ORDER[a.payment] - PAYMENT_STATUS_ORDER[b.payment] ||
+        a.name.localeCompare(b.name)
+    ),
+  }));
+  // Chosen receivers that no longer resolve — wallets can't be deleted
+  // through the app, but an out-of-band removal shouldn't silently drop
+  // members from this tab.
+  const knownReceiverIds = new Set(receiverDocs.map((w) => w._id.toString()));
+  const unresolvedPayments = [...membersByReceiver.entries()]
+    .filter(([id]) => !knownReceiverIds.has(id))
+    .flatMap(([, list]) => list)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const paymentsPending = [...membersByReceiver.values()]
+    .flat()
+    .filter((m) => m.payment === 'pending').length;
 
   const rows: AdminUserView[] = users.map((u) => ({
     id: u._id.toString(),
@@ -416,6 +474,15 @@ export default async function AdminPage({
     </div>
   );
 
+  /** Payments tab body — receivers with their paying members. */
+  const paymentsPanel = (
+    <PaymentsPanel
+      groups={paymentsGroups}
+      unresolved={unresolvedPayments}
+      isAdmin={viewerIsAdmin}
+    />
+  );
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
       {/* Animated aurora orbs */}
@@ -451,7 +518,9 @@ export default async function AdminPage({
             <AdminTabs
               isAdmin={viewerIsAdmin}
               walletsCount={wallets.length}
+              paymentsPending={paymentsPending}
               members={membersPanel}
+              payments={paymentsPanel}
               wallets={<PaymentWalletsPanel wallets={wallets} />}
               addWallet={<AddPaymentWalletForm />}
             />

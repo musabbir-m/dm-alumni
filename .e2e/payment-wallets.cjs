@@ -15,8 +15,10 @@
  * registration starts unpaid) and is promoted to admin in Mongo; a plain
  * target member (batch 2018) is inserted directly.
  * Then, through the real /admin UI:
- *   - tabs render (Members default; Payment Wallets shows the empty state on
- *     a pristine DB, else the pre-existing receivers)
+ *   - tabs render (Members default; Payments mirrors the DB baseline — the
+ *     no-receivers empty state on a pristine DB, else the real receiver
+ *     groups; Payment Wallets shows the empty state on a pristine DB, else
+ *     the pre-existing receivers)
  *   - Add tab: batch select → searchable member picker → wallet type →
  *     number entered as "+880 1712-345678" and stored normalized 01712345678
  *   - wallet doc lands in `paymentWallets` with the identity snapshot
@@ -38,13 +40,20 @@
  *   - payment-details info button: absent before a receiver is chosen; on
  *     receiver rows it opens a short modal (receiver name + wallet number +
  *     gateway badge + status + TrxID), Escape and backdrop-click close it
+ *   - the Payments tab switches receivers by name-pill (one group at a
+ *     time): Zephyr's group holds both the admin's and the target's picks
+ *     (status + TrxID + the per-group summary), Mark paid's revalidation
+ *     refreshes the unmounted panel's props, and the tab badge counts the
+ *     pending queue
  * Actor 2 signs up + registers (1417003/2014) picking Zephyr as receiver
  * with a TrxID at /register (pending + TrxID in Mongo), then is promoted to
- * moderator (moderatorBatch 2017) — /admin shows ONLY the Members tab.
+ * moderator (moderatorBatch 2017) — /admin shows Members + Payments (no
+ * wallet tabs); the Payments tab is their read-only lens too.
  * Zero page errors across both contexts. No uploads → no Cloudinary assets.
  * Cleans up all three Mongo records + the wallet doc afterwards. */
 const { chromium } = require('playwright');
 const { clerkSetup, setupClerkTestingToken } = require('@clerk/testing/playwright');
+const { createClerkClient } = require('@clerk/backend');
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -85,6 +94,7 @@ const log = (...a) => console.log('[pay]', ...a);
 let failures = 0;
 let browserRef = null;
 const errors = [];
+let clerkAdmin = null; // Backend API client — the force-verify fallback below
 const check = (name, ok) => {
   log(ok ? `PASS ${name}` : `FAIL ${name}`);
   if (!ok) failures++;
@@ -187,6 +197,26 @@ async function makeActor(browser, label) {
   return { context, page, goto };
 }
 
+/** completeProfile requires a VERIFIED email. The dev instance's sign-up flow
+ * verifies it while email verification is on (the OTP 424242 path below);
+ * with the setting off (2026-11: turned off while debugging sign-in step-up
+ * codes — it also bricks every real local registration until re-enabled),
+ * sign-ups land unverified — force-verify the throwaway through the Backend
+ * API so registration can complete. */
+async function ensureClerkVerified(email) {
+  let user = null;
+  for (let i = 0; i < 10 && !user; i++) {
+    const res = await clerkAdmin.users.getUserList({ emailAddress: [email] });
+    user = (res.data || res || [])[0];
+    if (!user) await new Promise((r) => setTimeout(r, 300));
+  }
+  const em = user && (user.emailAddresses || [])[0];
+  if (!em) throw new Error(`no Clerk email address for ${email}`);
+  if (em.verification && em.verification.status === 'verified') return;
+  await clerkAdmin.emailAddresses.updateEmailAddress(em.id, { verified: true });
+  log('force-verified', email, '(dev instance sign-up verification is off)');
+}
+
 /** Clerk sign-up (email + password + name, OTP 424242) landing on /register. */
 async function signUpActor(page, goto, email, first, last) {
   const emailField = 'input[name="identifier"], input[name="emailAddress"]';
@@ -214,6 +244,7 @@ async function signUpActor(page, goto, email, first, last) {
     }
   }
   await page.waitForURL('**/register', { timeout: 45000 });
+  await ensureClerkVerified(email);
 }
 
 /** Fill the step-2 alumni form (no uploads) and submit. When pick is given
@@ -299,6 +330,7 @@ async function completeRegistration(page, pair, pick, baselineWallets = 0) {
 
 async function main() {
   loadEnvLocal();
+  clerkAdmin = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
   await mongoose.connect(process.env.MONGODB_URI);
   const users = mongoose.connection.collection('users');
   const walletsCol = mongoose.connection.collection('paymentWallets');
@@ -365,7 +397,7 @@ async function main() {
   await page.waitForTimeout(1500);
   const tab = (name) => page.getByRole('tab', { name });
   check('/admin: Staff dashboard heading', (await page.locator('h1').textContent()) === 'Staff dashboard');
-  check('tabs: three for admin', (await page.locator('[role="tab"]').count()) === 3);
+  check('tabs: four for admin', (await page.locator('[role="tab"]').count()) === 4);
   check('tabs: Members selected by default', (await tab('Members').getAttribute('aria-selected')) === 'true');
   check('members panel: target row listed', await waitFor(() => page.locator('li', { hasText: TARGET.name }).count().then((n) => n === 1)));
   // The target starts with no payment fields — Mark paid is a pending-only
@@ -381,6 +413,19 @@ async function main() {
       .locator('li', { hasText: TARGET.name })
       .getByRole('button', { name: `Payment details for ${TARGET.name}` })
       .count()) === 0
+  );
+
+  // Payments tab — mirrors the DB baseline like the Wallets tab does: the
+  // no-receivers empty state on a pristine DB, else the real receiver groups
+  // (never assert their names — they're real data).
+  await tab('Payments').click();
+  await page.waitForTimeout(500);
+  const payBody = await page.locator('[role="tabpanel"]').textContent();
+  check(
+    'payments tab: state matches DB baseline',
+    baselineWallets === 0
+      ? payBody.includes('No payment receivers')
+      : !payBody.includes('No payment receivers')
   );
 
   // Wallets tab — empty state on a pristine DB; on a live DB the real
@@ -727,6 +772,80 @@ async function main() {
     'mongo: target marked paid',
     (await users.findOne({ email: TARGET.email }))?.paymentStatus === 'paid'
   );
+
+  // Payments tab — the same revalidation that flipped the Members badge
+  // refreshed this (unmounted) panel's props: the target's row is Paid while
+  // the admin's own pick stays pending, both under Zephyr's group.
+  check(
+    'tabs: Payments badge counts the pending queue',
+    /Payments\s*\d+/.test((await tab('Payments').textContent()) || '')
+  );
+  await tab('Payments').click();
+  await page.waitForTimeout(500);
+  // Receiver name-pills — one per receiver (the run's wallet + any real
+  // ones). Only the SELECTED receiver's group renders (the first pill by
+  // default), so click Zephyr's before asserting the group.
+  check(
+    'payments tab: receiver pills list every receiver',
+    (await page.locator('[role="tabpanel"] button[aria-pressed]').count()) ===
+      baselineWallets + 1
+  );
+  await page
+    .locator('[role="tabpanel"]')
+    .getByRole('button', { name: TARGET.name })
+    .click();
+  await page.waitForTimeout(300);
+  check(
+    'payments tab: only the selected receiver group renders',
+    (await page.locator('[role="tabpanel"] section').count()) === 1
+  );
+  const zephyrGroup = page.locator('section', { hasText: TARGET.name });
+  check(
+    'payments tab: receiver group header (number + gateway)',
+    (await waitFor(() =>
+      zephyrGroup.getByText(WALLET_NUM_FIX, { exact: true }).count().then((n) => n >= 1)
+    )) && (await zephyrGroup.getByText('Nagad', { exact: true }).count()) >= 1
+  );
+  const paymentsTabText = await page.locator('[role="tabpanel"]').textContent();
+  check(
+    'payments tab: summary line counts chosen + pending',
+    paymentsTabText.includes('chose a receiver') &&
+      paymentsTabText.includes('awaiting confirmation')
+  );
+  check(
+    'payments tab: both members grouped under their receiver',
+    (await zephyrGroup.getByText('Ada Paywell').count()) >= 1 &&
+      (await zephyrGroup.getByText(TARGET.name).count()) >= 1
+  );
+  check(
+    'payments tab: member rows carry status + TrxID',
+    (await zephyrGroup.getByText('Paid', { exact: true }).count()) === 1 &&
+      (await zephyrGroup.getByText('Pending', { exact: true }).count()) === 1 &&
+      (await zephyrGroup.getByText(`TrxID ${TRX_TARGET}`).count()) === 1 &&
+      (await zephyrGroup.getByText(`TrxID ${TRX_EDIT}`).count()) === 1
+  );
+  check(
+    'payments tab: group summary counts members by status',
+    (await zephyrGroup.getByText('2 members', { exact: true }).count()) === 1 &&
+      (await zephyrGroup.getByText('1 pending', { exact: true }).count()) === 1 &&
+      (await zephyrGroup.getByText('1 paid', { exact: true }).count()) === 1
+  );
+  await page.screenshot({ path: path.join(OUT, 'payments-tab-light.png') });
+  // Switching pills swaps the list — the first pill is a real receiver on a
+  // live DB, so Zephyr's members must disappear (pristine DB has only
+  // Zephyr, so the swap is a no-op and the check is skipped).
+  if (baselineWallets > 0) {
+    await page.locator('[role="tabpanel"] button[aria-pressed]').first().click();
+    await page.waitForTimeout(300);
+    check(
+      'payments tab: switching receivers swaps the list',
+      (await page.locator('[role="tabpanel"]').getByText(`TrxID ${TRX_TARGET}`).count()) === 0
+    );
+  }
+  // Back to Members for the reset flow
+  await tab('Members').click();
+  await page.waitForTimeout(500);
+
   await targetRow.getByRole('button', { name: 'Reset payment' }).click();
   check(
     'admin: reset payment returns the dues badge to Pending',
@@ -761,7 +880,10 @@ async function main() {
   );
   await mod.goto('/admin');
   await mod.page.waitForTimeout(1500);
-  check('moderator: only the Members tab', (await mod.page.locator('[role="tab"]').count()) === 1);
+  check(
+    'moderator: Members + Payments tabs (no wallet tabs)',
+    (await mod.page.locator('[role="tab"]').count()) === 2
+  );
   check(
     'moderator: member list still renders',
     (await mod.page.locator('li', { hasText: TARGET.name }).count()) === 1
@@ -774,6 +896,19 @@ async function main() {
       .locator('li', { hasText: TARGET.name })
       .getByRole('button', { name: `Payment details for ${TARGET.name}` })
       .count()) === 1
+  );
+  // The Payments tab is the same read-only lens — click Zephyr's receiver
+  // pill, then the moderator's own registration pick shows in the group
+  await mod.page.getByRole('tab', { name: 'Payments' }).click();
+  await mod.page.waitForTimeout(500);
+  const modPanel = mod.page.locator('[role="tabpanel"]');
+  await modPanel.getByRole('button', { name: TARGET.name }).click();
+  await mod.page.waitForTimeout(300);
+  check(
+    'moderator: Payments tab renders (read-only, own pick included)',
+    (await modPanel.getByText(WALLET_NUM_FIX, { exact: true }).count()) >= 1 &&
+      (await modPanel.getByText('Moe Moderato').count()) >= 1 &&
+      (await modPanel.getByText(`TrxID ${TRX_REG}`).count()) === 1
   );
 
   check('zero page errors across both contexts', errors.length === 0);
