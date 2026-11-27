@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
+    "verify:election": "tsx scripts/verify-election.ts",
     "import:students": "tsx scripts/import-students.ts"
   },
   "dependencies": {

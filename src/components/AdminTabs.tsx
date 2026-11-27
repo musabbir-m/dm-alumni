@@ -2,24 +2,28 @@
 
 import { useId, useState, type ReactNode } from 'react';
 
-export type AdminTabKey = 'members' | 'payments' | 'wallets' | 'add';
+export type AdminTabKey = 'members' | 'payments' | 'elections' | 'wallets' | 'add';
 
 /**
  * Client-side tab switcher for the staff dashboard. The tab panels arrive as
  * server-rendered props (RSC composition — the page renders them, this
  * component only decides which is mounted), so switching tabs costs no server
- * roundtrip and no route change. Members and Payments render for every staff
- * viewer (the Payments overview is read-only, like the rows' payment info);
- * the wallet tabs render for admins only. Wallet mutations revalidatePath('/admin'),
- * which re-renders the page — panel props refresh while `activeTab` state
- * survives, so the list the admin lands on after an add/edit is always fresh.
+ * roundtrip and no route change. Members, Payments and Election render for
+ * every staff viewer (the Election tab is read-only monitoring — turnout
+ * during voting, tallies after close; the management card inside it is
+ * admin-gated); the wallet tabs render for admins only. Wallet and election
+ * mutations revalidatePath('/admin'), which re-renders the page — panel props
+ * refresh while `activeTab` state survives, so the list the admin lands on
+ * after an add/edit is always fresh.
  */
 export default function AdminTabs({
   isAdmin,
   walletsCount,
   paymentsPending,
+  electionTurnout,
   members,
   payments,
+  elections,
   wallets,
   addWallet,
 }: {
@@ -27,8 +31,11 @@ export default function AdminTabs({
   walletsCount: number;
   /** Members whose dues await confirmation — the Payments tab's badge (hidden at 0) */
   paymentsPending: number;
+  /** Live turnout while an election is open — the Election tab's badge (hidden otherwise) */
+  electionTurnout?: number;
   members: ReactNode;
   payments: ReactNode;
+  elections: ReactNode;
   wallets: ReactNode;
   addWallet: ReactNode;
 }) {
@@ -41,6 +48,12 @@ export default function AdminTabs({
       key: 'payments',
       label: 'Payments',
       count: paymentsPending > 0 ? paymentsPending : undefined,
+    },
+    {
+      key: 'elections',
+      label: 'Election',
+      count:
+        electionTurnout !== undefined && electionTurnout > 0 ? electionTurnout : undefined,
     },
     ...(isAdmin
       ? [
@@ -94,6 +107,7 @@ export default function AdminTabs({
       <div role="tabpanel" id={`${id}-panel-${activeTab}`} aria-labelledby={`${id}-tab-${activeTab}`} className="pt-6">
         {activeTab === 'members' && members}
         {activeTab === 'payments' && payments}
+        {activeTab === 'elections' && elections}
         {activeTab === 'wallets' && wallets}
         {activeTab === 'add' && addWallet}
       </div>

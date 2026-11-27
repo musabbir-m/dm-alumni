@@ -5,12 +5,13 @@ import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, Mail, Phone, IdCard, GraduationCap,
   Clock, XCircle, ShieldCheck, BadgeCheck, FileText, Pencil, ImagePlus, Lock, Briefcase,
-  CircleDollarSign, Hash,
+  CircleDollarSign, Hash, Vote,
 } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { batches, batchName } from '@/data/batches';
 import { isLinkedInUrl } from '@/lib/directory';
 import { listPaymentWallets } from '@/lib/payment-wallets';
+import { getVotingContext } from '@/lib/election';
 import { LinkedinIcon } from '@/components/BrandIcons';
 import ThemeToggle from '@/components/ThemeToggle';
 import BrandLogo from '@/components/BrandLogo';
@@ -34,6 +35,9 @@ export default async function ProfilePage() {
   const transactionId = user.paymentTransactionId ?? '';
   const receivers = await listPaymentWallets();
   const receiver = receivers.find((r) => r.id === receiverId) ?? null;
+  // Election CTA — only resolved when a verified member can still cast a vote
+  const voteContext = await getVotingContext(user._id.toString());
+  const electionOpen = voteContext.phase === 'open' ? voteContext.election : null;
   const batchInfo = batches.find((b) => b.year === user.batch);
   const memberSince = user.createdAt
     ? new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(user.createdAt)
@@ -321,6 +325,31 @@ export default async function ProfilePage() {
                   </p>
                 </div>
               </div>
+
+              {electionOpen && (
+                <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-ocean-200 bg-gradient-to-r from-ocean-50 to-reef-50 px-4 py-4 dark:border-ocean-800/60 dark:from-ocean-900/60 dark:to-reef-950/40">
+                  <div className="flex items-center gap-3.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-ocean-500 to-reef-500 text-white dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950">
+                      <Vote className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-ocean-900 dark:text-white">
+                        {electionOpen.title} is open
+                      </p>
+                      <p className="text-xs text-ocean-500 dark:text-ocean-300/70">
+                        One vote per member — cast your ballot before voting closes.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/vote"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-ocean-500 to-reef-500 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-ocean-300/40 transition-all hover:brightness-110 dark:from-ocean-400 dark:to-reef-500 dark:text-ocean-950 dark:shadow-ocean-950/40"
+                  >
+                    Cast my vote
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
 
               {role === 'admin' && (
                 <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-ocean-200 bg-gradient-to-r from-ocean-50 to-reef-50 px-4 py-4 dark:border-ocean-800/60 dark:from-ocean-900/60 dark:to-reef-950/40">

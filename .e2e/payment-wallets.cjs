@@ -397,7 +397,7 @@ async function main() {
   await page.waitForTimeout(1500);
   const tab = (name) => page.getByRole('tab', { name });
   check('/admin: Staff dashboard heading', (await page.locator('h1').textContent()) === 'Staff dashboard');
-  check('tabs: four for admin', (await page.locator('[role="tab"]').count()) === 4);
+  check('tabs: five for admin (incl. Election)', (await page.locator('[role="tab"]').count()) === 5);
   check('tabs: Members selected by default', (await tab('Members').getAttribute('aria-selected')) === 'true');
   check('members panel: target row listed', await waitFor(() => page.locator('li', { hasText: TARGET.name }).count().then((n) => n === 1)));
   // The target starts with no payment fields — Mark paid is a pending-only
@@ -881,8 +881,8 @@ async function main() {
   await mod.goto('/admin');
   await mod.page.waitForTimeout(1500);
   check(
-    'moderator: Members + Payments tabs (no wallet tabs)',
-    (await mod.page.locator('[role="tab"]').count()) === 2
+    'moderator: Members + Payments + Election tabs (no wallet tabs)',
+    (await mod.page.locator('[role="tab"]').count()) === 3
   );
   check(
     'moderator: member list still renders',

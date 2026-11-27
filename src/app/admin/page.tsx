@@ -19,6 +19,13 @@ import PaymentInfoButton from '@/components/PaymentInfoButton';
 import type { PaymentReceiverInfo } from '@/components/PaymentInfoButton';
 import PaymentsPanel from '@/components/PaymentsPanel';
 import type { PaymentsGroup, PaymentsMember } from '@/components/PaymentsPanel';
+import ElectionMonitorPanel from '@/components/ElectionMonitorPanel';
+import {
+  computeTurnout,
+  getLatestElectionView,
+  getTally,
+  verifyChain,
+} from '@/lib/election';
 import AddPaymentWalletForm from '@/components/AddPaymentWalletForm';
 import PaymentWalletsPanel from '@/components/PaymentWalletsPanel';
 import { StatusBadge, RoleBadge, PaymentStatusBadge, STATUS_STYLES } from '@/components/UserBadges';
@@ -200,6 +207,20 @@ export default async function AdminPage({
   const paymentsPending = [...membersByReceiver.values()]
     .flat()
     .filter((m) => m.payment === 'pending').length;
+
+  // ---- Election tab seed: the latest election with its live state ----
+  // Turnout + chain verify on every dashboard load; the panel's 10s poller
+  // keeps them fresh while voting is open. getTally enforces the no-leak gate
+  // itself — it returns null while the election is open, so running counts
+  // never reach this page during voting.
+  const electionView = await getLatestElectionView();
+  const [electionTurnoutView, electionChain, electionTally] = electionView
+    ? await Promise.all([
+        computeTurnout(electionView.id),
+        verifyChain(electionView.id),
+        getTally(electionView.id),
+      ])
+    : [null, null, null];
 
   const rows: AdminUserView[] = users.map((u) => ({
     id: u._id.toString(),
@@ -483,6 +504,17 @@ export default async function AdminPage({
     />
   );
 
+  /** Election tab body — live turnout monitoring (+ admin management inside). */
+  const electionsPanel = (
+    <ElectionMonitorPanel
+      election={electionView}
+      initialTurnout={electionTurnoutView}
+      initialChain={electionChain}
+      initialTally={electionTally}
+      isAdmin={viewerIsAdmin}
+    />
+  );
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-ocean-50 via-white to-reef-50 dark:from-ocean-950 dark:via-ocean-900 dark:to-reef-950">
       {/* Animated aurora orbs */}
@@ -519,8 +551,14 @@ export default async function AdminPage({
               isAdmin={viewerIsAdmin}
               walletsCount={wallets.length}
               paymentsPending={paymentsPending}
+              electionTurnout={
+                electionView && electionView.status === 'open'
+                  ? (electionTurnoutView?.total ?? 0)
+                  : undefined
+              }
               members={membersPanel}
               payments={paymentsPanel}
+              elections={electionsPanel}
               wallets={<PaymentWalletsPanel wallets={wallets} />}
               addWallet={<AddPaymentWalletForm />}
             />
